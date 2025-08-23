@@ -782,15 +782,15 @@ const MakeInspiresAdminDashboard = () => {
     const filteredPrograms = dashboardData.programTypes.map(program => {
       let filteredMonthlyData = program.monthlyData || [];
       if (startDate) {
-        filteredMonthlyData = program.monthlyData.filter(item => {
+        filteredMonthlyData = (program.monthlyData || []).filter(item => {
           const itemDate = new Date(item.month + '-01');
           return itemDate >= startDate && itemDate <= endDate;
         });
       }
 
-      // Calculate filtered totals
-      const filteredRevenue = filteredMonthlyData.reduce((sum, item) => sum + item.revenue, 0);
-      const filteredTransactions = filteredMonthlyData.reduce((sum, item) => sum + item.transactions, 0);
+      // Calculate filtered totals with safety checks
+      const filteredRevenue = filteredMonthlyData.reduce((sum, item) => sum + (item.revenue || 0), 0);
+      const filteredTransactions = filteredMonthlyData.reduce((sum, item) => sum + (item.transactions || 0), 0);
 
       return {
         ...program,
@@ -800,19 +800,19 @@ const MakeInspiresAdminDashboard = () => {
       };
     });
 
-    // Apply additional filters
-    let finalPrograms = filteredPrograms;
+    // Apply additional filters with safety checks
+    let finalPrograms = filteredPrograms || [];
     if (selectedProgram !== 'All') {
-      finalPrograms = filteredPrograms.filter(p => p.name === selectedProgram);
+      finalPrograms = (filteredPrograms || []).filter(p => p.name === selectedProgram);
     }
 
-    // Calculate filtered totals
-    const filteredRevenue = filteredMonthlyData.reduce((sum, item) => sum + item.revenue, 0);
-    const filteredTransactions = filteredMonthlyData.reduce((sum, item) => sum + item.transactions, 0);
-    const filteredCustomers = filteredMonthlyData.reduce((sum, item) => sum + item.customers, 0);
+    // Calculate filtered totals with safety checks
+    const filteredRevenue = filteredMonthlyData.reduce((sum, item) => sum + (item.revenue || 0), 0);
+    const filteredTransactions = filteredMonthlyData.reduce((sum, item) => sum + (item.transactions || 0), 0);
+    const filteredCustomers = filteredMonthlyData.reduce((sum, item) => sum + (item.customers || 0), 0);
 
-    // Apply location filter to locations data
-    let filteredLocations = Object.entries(dashboardData.locations);
+    // Apply location filter to locations data with safety checks  
+    let filteredLocations = Object.entries(dashboardData.locations || {});
     if (selectedLocation !== 'All') {
       filteredLocations = filteredLocations.filter(([key]) => 
         key.toLowerCase() === selectedLocation.toLowerCase()
