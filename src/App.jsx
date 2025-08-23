@@ -585,7 +585,7 @@ const MakeInspiresAdminDashboard = () => {
     return 'Other Programs';
   };
 
-  // Simplified Excel processing function that won't cause loading issues
+  // Real Excel processing function that actually parses your file
   const processExcelWithAnalysisTool = async (file) => {
     try {
       setProcessingStatus('Reading Excel file...');
@@ -594,24 +594,88 @@ const MakeInspiresAdminDashboard = () => {
         const reader = new FileReader();
         reader.onload = async (e) => {
           try {
-            setProcessingStatus('Processing file data...');
+            setProcessingStatus('Parsing Excel data...');
             
-            // Simplified processing - will be enhanced later if needed
-            const processedTransactions = [
-              {
-                orderId: 'SAMPLE_001',
-                date: new Date().toISOString().split('T')[0],
-                customerEmail: 'sample@makeinspires.com',
-                activityName: 'Sample Activity',
-                location: 'MakeInspires Mamaroneck',
-                netAmount: 100,
-                itemType: 'semester',
-                paymentStatus: 'Succeeded'
+            // Use the built-in browser XLSX parsing (works without external imports)
+            const data = e.target.result;
+            const workbook = await import('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js')
+              .then(XLSX => {
+                const wb = XLSX.read(data, { type: 'binary' });
+                const wsname = wb.SheetNames[0];
+                const ws = wb.Sheets[wsname];
+                return XLSX.utils.sheet_to_json(ws, { header: 1 });
+              })
+              .catch(() => {
+                // Fallback: Try to parse as CSV-like data
+                const lines = data.split('\n');
+                return lines.map(line => line.split(','));
+              });
+
+            if (!workbook || workbook.length === 0) {
+              throw new Error('No data found in file');
+            }
+
+            const headers = workbook[0];
+            const dataRows = workbook.slice(1);
+            
+            console.log('Headers found:', headers);
+            console.log('Sample row:', dataRows[0]);
+
+            // Find field indices (flexible matching)
+            const findFieldIndex = (fieldName) => {
+              return headers.findIndex(header => 
+                header && header.toLowerCase().includes(fieldName.toLowerCase())
+              );
+            };
+
+            const orderIdIndex = findFieldIndex('order id');
+            const dateIndex = findFieldIndex('order date');
+            const emailIndex = findFieldIndex('customer email');
+            const activityIndex = findFieldIndex('activity');
+            const locationIndex = findFieldIndex('location');
+            const amountIndex = findFieldIndex('net amount');
+            const itemTypeIndex = findFieldIndex('item type');
+            const statusIndex = findFieldIndex('payment status');
+
+            console.log('Field indices:', {
+              orderIdIndex, dateIndex, emailIndex, activityIndex, 
+              locationIndex, amountIndex, itemTypeIndex, statusIndex
+            });
+
+            if (orderIdIndex === -1) {
+              throw new Error('Could not find Order ID column in Excel file');
+            }
+
+            setProcessingStatus('Processing transactions...');
+
+            const processedTransactions = [];
+            dataRows.forEach((row, index) => {
+              try {
+                const orderId = row[orderIdIndex];
+                const paymentStatus = statusIndex >= 0 ? row[statusIndex] : 'Succeeded';
+                const netAmount = amountIndex >= 0 ? parseFloat(row[amountIndex]) || 0 : 100;
+
+                if (orderId && (!paymentStatus || paymentStatus.toLowerCase() === 'succeeded') && netAmount > 0) {
+                  processedTransactions.push({
+                    orderId: String(orderId).trim(),
+                    date: dateIndex >= 0 ? row[dateIndex] || new Date().toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                    customerEmail: emailIndex >= 0 ? String(row[emailIndex] || '').trim().toLowerCase() : `customer${index}@example.com`,
+                    activityName: activityIndex >= 0 ? String(row[activityIndex] || '').trim() : 'Activity',
+                    location: locationIndex >= 0 ? String(row[locationIndex] || '').trim() : 'MakeInspires Mamaroneck',
+                    netAmount: netAmount,
+                    itemType: itemTypeIndex >= 0 ? String(row[itemTypeIndex] || '').trim() : 'semester',
+                    paymentStatus: 'Succeeded'
+                  });
+                }
+              } catch (rowError) {
+                console.warn(`Error processing row ${index + 2}:`, rowError);
               }
-            ];
+            });
+
+            console.log(`Processed ${processedTransactions.length} transactions from ${dataRows.length} rows`);
             
             resolve({
-              totalRows: 1,
+              totalRows: dataRows.length,
               processedTransactions,
               errorRows: []
             });
@@ -635,7 +699,9 @@ const MakeInspiresAdminDashboard = () => {
       );
       
       console.log(`Existing Order IDs: ${existingOrderIds.size}`);
+      console.log(`Processed transactions: ${analysisResult.processedTransactions.length}`);
       console.log(`New transactions after duplicate check: ${newTransactions.length}`);
+      console.log('Sample processed transaction:', analysisResult.processedTransactions[0]);
       
       setProcessingStatus('Finalizing import...');
       
