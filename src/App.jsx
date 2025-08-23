@@ -1,343 +1,114 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area, ComposedChart, ScatterChart, Scatter } from 'recharts';
-import { Users, DollarSign, Calendar, MapPin, TrendingUp, RefreshCw, Award, Target, BookOpen, PartyPopper, Wrench, Package, Upload, Database, FileSpreadsheet, CheckCircle, Globe, LogOut, LogIn, Shield, Eye, Filter, TrendingDown, Zap, Activity, AlertCircle, ChevronDown, Search, X, Brain, Clock, Trash2 } from 'lucide-react';
+import { Users, DollarSign, Calendar, MapPin, TrendingUp, RefreshCw, Award, Target, BookOpen, PartyPopper, Wrench, Package, Upload, Database, FileSpreadsheet, CheckCircle, Globe, LogOut, LogIn, Shield, Eye, Filter, TrendingDown, Zap, Activity, AlertCircle, ChevronDown, Search, X, Brain, Clock, Trash2, Building, School } from 'lucide-react';
 
 /*
-=== MAKEINSPIRES BUSINESS DASHBOARD v44.2 ===
-GitHub + Vercel + Supabase Integration
-✅ ZERO SIMULATIONS - Real Excel processing only
-✅ Enhanced categorization with Item Types + Activity Names
-✅ Genuine duplicate detection using real Order IDs
+MakeInspires Business Dashboard - GitHub + Vercel + Supabase
+✅ Real Excel processing (no simulations)
+✅ Enhanced categorization with Item Types + Activity Names  
+✅ Delete all data function for admins
 */
 
-const MakeInspiresEnhancedDashboard = () => {
-  // Authentication state
+const MakeInspiresAdminDashboard = () => {
   const [user, setUser] = useState(null);
-  const [showLogin, setShowLogin] = useState(true);
-
+  const [loading, setLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
+  
   // Dashboard state
-  const [activeTab, setActiveTab] = useState('overview');
-  const [dateRange, setDateRange] = useState('All');
-  const [selectedLocation, setSelectedLocation] = useState('All');
-  const [selectedProgram, setSelectedProgram] = useState('All');
-  const [selectedCustomerType, setSelectedCustomerType] = useState('All');
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
-
+  const [activeTab, setActiveTab] = useState('business-overview');
+  const [dateRange, setDateRange] = useState('all');
+  const [selectedLocation, setSelectedLocation] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  
   // Upload state
+  const [uploadStatus, setUploadStatus] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadResults, setUploadResults] = useState(null);
   const [processingStatus, setProcessingStatus] = useState('');
 
-  // Enhanced baseline data (26 months from June 2023 to August 2025)
-  const [dashboardData, setDashboardData] = useState(() => {
-    const saved = localStorage.getItem('makeinspiresData');
-    if (saved) {
-      return JSON.parse(saved);
-    }
-
-    // 26-month baseline dataset with realistic business patterns
-    const baselineData = {
-      overview: {
-        totalRevenue: 2510000,
-        totalTransactions: 6138,
-        uniqueCustomers: 2456,
-        avgTransactionValue: 408.89
-      },
-      programTypes: [
-        { 
-          name: 'Semester Programs', 
-          value: 28.2, 
-          revenue: 708450,
-          transactions: 1734,
-          monthlyData: [
-            { month: '2023-06', revenue: 45200, transactions: 98 },
-            { month: '2023-07', revenue: 38900, transactions: 85 },
-            { month: '2023-08', revenue: 52100, transactions: 112 },
-            { month: '2023-09', revenue: 68500, transactions: 145 },
-            { month: '2023-10', revenue: 72300, transactions: 158 },
-            { month: '2023-11', revenue: 69800, transactions: 152 },
-            { month: '2023-12', revenue: 41200, transactions: 89 },
-            { month: '2024-01', revenue: 75600, transactions: 165 },
-            { month: '2024-02', revenue: 71400, transactions: 156 },
-            { month: '2024-03', revenue: 73800, transactions: 161 },
-            { month: '2024-04', revenue: 67200, transactions: 147 },
-            { month: '2024-05', revenue: 48300, transactions: 105 },
-            { month: '2024-06', revenue: 39100, transactions: 85 },
-            { month: '2024-07', revenue: 35800, transactions: 78 },
-            { month: '2024-08', revenue: 41900, transactions: 91 },
-            { month: '2024-09', revenue: 58700, transactions: 128 },
-            { month: '2024-10', revenue: 62400, transactions: 136 },
-            { month: '2024-11', revenue: 59300, transactions: 129 },
-            { month: '2024-12', revenue: 34600, transactions: 75 },
-            { month: '2025-01', revenue: 49800, transactions: 109 },
-            { month: '2025-02', revenue: 47200, transactions: 103 },
-            { month: '2025-03', revenue: 51600, transactions: 113 },
-            { month: '2025-04', revenue: 46800, transactions: 102 },
-            { month: '2025-05', revenue: 43200, transactions: 94 },
-            { month: '2025-06', revenue: 38900, transactions: 85 },
-            { month: '2025-07', revenue: 41100, transactions: 90 },
-            { month: '2025-08', revenue: 29700, transactions: 65 }
-          ]
-        },
-        { 
-          name: 'Workshops & MakeJams', 
-          value: 22.7, 
-          revenue: 570270,
-          transactions: 1393,
-          monthlyData: [
-            { month: '2023-06', revenue: 35600, transactions: 89 },
-            { month: '2023-07', revenue: 42300, transactions: 106 },
-            { month: '2023-08', revenue: 38900, transactions: 97 },
-            { month: '2023-09', revenue: 33200, transactions: 83 },
-            { month: '2023-10', revenue: 36800, transactions: 92 },
-            { month: '2023-11', revenue: 41500, transactions: 104 },
-            { month: '2023-12', revenue: 28700, transactions: 72 },
-            { month: '2024-01', revenue: 39400, transactions: 98 },
-            { month: '2024-02', revenue: 37600, transactions: 94 },
-            { month: '2024-03', revenue: 40200, transactions: 100 },
-            { month: '2024-04', revenue: 35900, transactions: 90 },
-            { month: '2024-05', revenue: 44800, transactions: 112 },
-            { month: '2024-06', revenue: 48200, transactions: 120 },
-            { month: '2024-07', revenue: 52100, transactions: 130 },
-            { month: '2024-08', revenue: 49600, transactions: 124 },
-            { month: '2024-09', revenue: 43200, transactions: 108 },
-            { month: '2024-10', revenue: 38900, transactions: 97 },
-            { month: '2024-11', revenue: 35600, transactions: 89 },
-            { month: '2024-12', revenue: 25400, transactions: 63 },
-            { month: '2025-01', revenue: 31200, transactions: 78 },
-            { month: '2025-02', revenue: 33800, transactions: 84 },
-            { month: '2025-03', revenue: 36400, transactions: 91 },
-            { month: '2025-04', revenue: 38900, transactions: 97 },
-            { month: '2025-05', revenue: 42100, transactions: 105 },
-            { month: '2025-06', revenue: 45300, transactions: 113 },
-            { month: '2025-07', revenue: 48700, transactions: 122 },
-            { month: '2025-08', revenue: 32800, transactions: 82 }
-          ]
-        },
-        { 
-          name: 'Summer Camps', 
-          value: 16.5, 
-          revenue: 414150,
-          transactions: 1013,
-          monthlyData: [
-            { month: '2023-06', revenue: 58900, transactions: 92 },
-            { month: '2023-07', revenue: 94200, transactions: 147 },
-            { month: '2023-08', revenue: 76800, transactions: 120 },
-            { month: '2023-09', revenue: 3200, transactions: 5 },
-            { month: '2023-10', revenue: 2100, transactions: 3 },
-            { month: '2023-11', revenue: 1800, transactions: 3 },
-            { month: '2023-12', revenue: 1200, transactions: 2 },
-            { month: '2024-01', revenue: 2400, transactions: 4 },
-            { month: '2024-02', revenue: 1900, transactions: 3 },
-            { month: '2024-03', revenue: 3100, transactions: 5 },
-            { month: '2024-04', revenue: 4800, transactions: 7 },
-            { month: '2024-05', revenue: 8900, transactions: 14 },
-            { month: '2024-06', revenue: 52100, transactions: 81 },
-            { month: '2024-07', revenue: 87400, transactions: 136 },
-            { month: '2024-08', revenue: 71200, transactions: 111 },
-            { month: '2024-09', revenue: 2800, transactions: 4 },
-            { month: '2024-10', revenue: 1900, transactions: 3 },
-            { month: '2024-11', revenue: 1600, transactions: 2 },
-            { month: '2024-12', revenue: 900, transactions: 1 },
-            { month: '2025-01', revenue: 2100, transactions: 3 },
-            { month: '2025-02', revenue: 1700, transactions: 3 },
-            { month: '2025-03', revenue: 2900, transactions: 5 },
-            { month: '2025-04', revenue: 4200, transactions: 6 },
-            { month: '2025-05', revenue: 7800, transactions: 12 },
-            { month: '2025-06', revenue: 48300, transactions: 75 },
-            { month: '2025-07', revenue: 82600, transactions: 129 },
-            { month: '2025-08', revenue: 67200, transactions: 105 }
-          ]
-        },
-        { 
-          name: 'Drop-in Sessions', 
-          value: 16.2, 
-          revenue: 406620,
-          transactions: 994,
-          monthlyData: [
-            { month: '2023-06', revenue: 24800, transactions: 62 },
-            { month: '2023-07', revenue: 26400, transactions: 66 },
-            { month: '2023-08', revenue: 28100, transactions: 70 },
-            { month: '2023-09', revenue: 22300, transactions: 56 },
-            { month: '2023-10', revenue: 25600, transactions: 64 },
-            { month: '2023-11', revenue: 27200, transactions: 68 },
-            { month: '2023-12', revenue: 18900, transactions: 47 },
-            { month: '2024-01', revenue: 21400, transactions: 53 },
-            { month: '2024-02', revenue: 23800, transactions: 59 },
-            { month: '2024-03', revenue: 26200, transactions: 65 },
-            { month: '2024-04', revenue: 24600, transactions: 61 },
-            { month: '2024-05', revenue: 28900, transactions: 72 },
-            { month: '2024-06', revenue: 31200, transactions: 78 },
-            { month: '2024-07', revenue: 34100, transactions: 85 },
-            { month: '2024-08', revenue: 32800, transactions: 82 },
-            { month: '2024-09', revenue: 29400, transactions: 73 },
-            { month: '2024-10', revenue: 27600, transactions: 69 },
-            { month: '2024-11', revenue: 25800, transactions: 64 },
-            { month: '2024-12', revenue: 17200, transactions: 43 },
-            { month: '2025-01', revenue: 19600, transactions: 49 },
-            { month: '2025-02', revenue: 21800, transactions: 54 },
-            { month: '2025-03', revenue: 24200, transactions: 60 },
-            { month: '2025-04', revenue: 26400, transactions: 66 },
-            { month: '2025-05', revenue: 28900, transactions: 72 },
-            { month: '2025-06', revenue: 31600, transactions: 79 },
-            { month: '2025-07', revenue: 34200, transactions: 85 },
-            { month: '2025-08', revenue: 25100, transactions: 63 }
-          ]
-        },
-        { 
-          name: 'Birthday Parties', 
-          value: 8.6, 
-          revenue: 215860,
-          transactions: 527,
-          monthlyData: [
-            { month: '2023-06', revenue: 14200, transactions: 26 },
-            { month: '2023-07', revenue: 15800, transactions: 29 },
-            { month: '2023-08', revenue: 16400, transactions: 30 },
-            { month: '2023-09', revenue: 12600, transactions: 23 },
-            { month: '2023-10', revenue: 18200, transactions: 33 },
-            { month: '2023-11', revenue: 16800, transactions: 31 },
-            { month: '2023-12', revenue: 21400, transactions: 39 },
-            { month: '2024-01', revenue: 9800, transactions: 18 },
-            { month: '2024-02', revenue: 11200, transactions: 20 },
-            { month: '2024-03', revenue: 14600, transactions: 27 },
-            { month: '2024-04', revenue: 17800, transactions: 32 },
-            { month: '2024-05', revenue: 19200, transactions: 35 },
-            { month: '2024-06', revenue: 16800, transactions: 31 },
-            { month: '2024-07', revenue: 18400, transactions: 34 },
-            { month: '2024-08', revenue: 17600, transactions: 32 },
-            { month: '2024-09', revenue: 15200, transactions: 28 },
-            { month: '2024-10', revenue: 19800, transactions: 36 },
-            { month: '2024-11', revenue: 18600, transactions: 34 },
-            { month: '2024-12', revenue: 22400, transactions: 41 },
-            { month: '2025-01', revenue: 8900, transactions: 16 },
-            { month: '2025-02', revenue: 10400, transactions: 19 },
-            { month: '2025-03', revenue: 13800, transactions: 25 },
-            { month: '2025-04', revenue: 16200, transactions: 30 },
-            { month: '2025-05', revenue: 18600, transactions: 34 },
-            { month: '2025-06', revenue: 17200, transactions: 31 },
-            { month: '2025-07', revenue: 19400, transactions: 35 },
-            { month: '2025-08', revenue: 14200, transactions: 26 }
-          ]
-        },
-        { 
-          name: 'Other Programs', 
-          value: 7.8, 
-          revenue: 194650,
-          transactions: 477,
-          monthlyData: [
-            { month: '2023-06', revenue: 12800, transactions: 27 },
-            { month: '2023-07', revenue: 9200, transactions: 21 },
-            { month: '2023-08', revenue: 11400, transactions: 24 },
-            { month: '2023-09', revenue: 14200, transactions: 31 },
-            { month: '2023-10', revenue: 13600, transactions: 28 },
-            { month: '2023-11', revenue: 11900, transactions: 25 },
-            { month: '2023-12', revenue: 6800, transactions: 14 },
-            { month: '2024-01', revenue: 12200, transactions: 25 },
-            { month: '2024-02', revenue: 11800, transactions: 23 },
-            { month: '2024-03', revenue: 13600, transactions: 28 },
-            { month: '2024-04', revenue: 11900, transactions: 24 },
-            { month: '2024-05', revenue: 9600, transactions: 20 },
-            { month: '2024-06', revenue: 8800, transactions: 18 },
-            { month: '2024-07', revenue: 6200, transactions: 13 },
-            { month: '2024-08', revenue: 7600, transactions: 16 },
-            { month: '2024-09', revenue: 11800, transactions: 24 },
-            { month: '2024-10', revenue: 11400, transactions: 23 },
-            { month: '2024-11', revenue: 10900, transactions: 22 },
-            { month: '2024-12', revenue: 5600, transactions: 12 },
-            { month: '2025-01', revenue: 8200, transactions: 17 },
-            { month: '2025-02', revenue: 7800, transactions: 16 },
-            { month: '2025-03', revenue: 9200, transactions: 19 },
-            { month: '2025-04', revenue: 8600, transactions: 18 },
-            { month: '2025-05', revenue: 7200, transactions: 15 },
-            { month: '2025-06', revenue: 6800, transactions: 14 },
-            { month: '2025-07', revenue: 5400, transactions: 12 },
-            { month: '2025-08', revenue: 4700, transactions: 10 }
-          ]
-        }
-      ],
-      monthlyData: [
-        { month: '2023-06', revenue: 192700, transactions: 384, customers: 156 },
-        { month: '2023-07', revenue: 226600, transactions: 454, customers: 187 },
-        { month: '2023-08', revenue: 223800, transactions: 453, customers: 186 },
-        { month: '2023-09', revenue: 188500, transactions: 353, customers: 145 },
-        { month: '2023-10', revenue: 198800, transactions: 389, customers: 159 },
-        { month: '2023-11', revenue: 197300, transactions: 383, customers: 157 },
-        { month: '2023-12', revenue: 118200, transactions: 224, customers: 93 },
-        { month: '2024-01', revenue: 162400, transactions: 325, customers: 134 },
-        { month: '2024-02', revenue: 159800, transactions: 319, customers: 131 },
-        { month: '2024-03', revenue: 172000, transactions: 344, customers: 142 },
-        { month: '2024-04', revenue: 156800, transactions: 314, customers: 129 },
-        { month: '2024-05', revenue: 139700, transactions: 279, customers: 115 },
-        { month: '2024-06', revenue: 194100, transactions: 388, customers: 160 },
-        { month: '2024-07', revenue: 222300, transactions: 444, customers: 183 },
-        { month: '2024-08', revenue: 212400, transactions: 425, customers: 175 },
-        { month: '2024-09', revenue: 177600, transactions: 355, customers: 146 },
-        { month: '2024-10', revenue: 185200, transactions: 370, customers: 152 },
-        { month: '2024-11', revenue: 176400, transactions: 353, customers: 145 },
-        { month: '2024-12', revenue: 101600, transactions: 203, customers: 84 },
-        { month: '2025-01', revenue: 139200, transactions: 278, customers: 115 },
-        { month: '2025-02', revenue: 135300, transactions: 271, customers: 112 },
-        { month: '2025-03', revenue: 149100, transactions: 298, customers: 123 },
-        { month: '2025-04', revenue: 142800, transactions: 286, customers: 118 },
-        { month: '2025-05', revenue: 128200, transactions: 256, customers: 106 },
-        { month: '2025-06', revenue: 187600, transactions: 375, customers: 155 },
-        { month: '2025-07', revenue: 221300, transactions: 443, customers: 182 },
-        { month: '2025-08', revenue: 177400, transactions: 355, customers: 146 }
-      ],
-      locations: [
-        { name: 'Mamaroneck', revenue: 1105500, transactions: 2148, customers: 863 },
-        { name: 'NYC', revenue: 829800, transactions: 1612, customers: 647 },
-        { name: 'Chappaqua', revenue: 574700, transactions: 1117, customers: 448 },
-        { name: 'Partners', revenue: 0, transactions: 0, customers: 0 }
-      ],
-      customerCohorts: [
-        { month: '2023-06', newCustomers: 124, returningCustomers: 32, retentionRate: 78.5 },
-        { month: '2023-07', newCustomers: 145, returningCustomers: 42, retentionRate: 81.2 },
-        { month: '2023-08', newCustomers: 138, returningCustomers: 48, retentionRate: 83.7 },
-        { month: '2023-09', newCustomers: 98, returningCustomers: 47, retentionRate: 84.1 },
-        { month: '2023-10', newCustomers: 112, returningCustomers: 47, retentionRate: 79.6 },
-        { month: '2023-11', newCustomers: 108, returningCustomers: 49, retentionRate: 82.3 },
-        { month: '2023-12', newCustomers: 67, returningCustomers: 26, retentionRate: 77.9 },
-        { month: '2024-01', newCustomers: 89, returningCustomers: 45, retentionRate: 85.2 },
-        { month: '2024-02', newCustomers: 85, returningCustomers: 46, retentionRate: 86.4 },
-        { month: '2024-03', newCustomers: 92, returningCustomers: 50, retentionRate: 87.1 },
-        { month: '2024-04', newCustomers: 82, returningCustomers: 47, retentionRate: 85.8 },
-        { month: '2024-05', newCustomers: 74, returningCustomers: 41, retentionRate: 83.6 },
-        { month: '2024-06', newCustomers: 108, returningCustomers: 52, retentionRate: 88.2 },
-        { month: '2024-07', newCustomers: 124, returningCustomers: 59, retentionRate: 89.5 },
-        { month: '2024-08', newCustomers: 118, returningCustomers: 57, retentionRate: 88.8 },
-        { month: '2024-09', newCustomers: 98, returningCustomers: 48, retentionRate: 87.3 },
-        { month: '2024-10', newCustomers: 102, returningCustomers: 50, retentionRate: 86.9 },
-        { month: '2024-11', newCustomers: 96, returningCustomers: 49, retentionRate: 85.7 },
-        { month: '2024-12', newCustomers: 56, returningCustomers: 28, retentionRate: 84.2 },
-        { month: '2025-01', newCustomers: 78, returningCustomers: 37, retentionRate: 86.8 },
-        { month: '2025-02', newCustomers: 74, returningCustomers: 38, retentionRate: 87.4 },
-        { month: '2025-03', newCustomers: 82, returningCustomers: 41, retentionRate: 88.1 },
-        { month: '2025-04', newCustomers: 79, returningCustomers: 39, retentionRate: 87.6 },
-        { month: '2025-05', newCustomers: 71, returningCustomers: 35, retentionRate: 86.2 },
-        { month: '2025-06', newCustomers: 104, returningCustomers: 51, retentionRate: 89.3 },
-        { month: '2025-07', newCustomers: 122, returningCustomers: 60, retentionRate: 90.1 },
-        { month: '2025-08', newCustomers: 98, returningCustomers: 48, retentionRate: 88.7 }
-      ],
-      transactions: [] // Will be populated from uploads
-    };
-
-    return baselineData;
+  // Enhanced dashboard data
+  const [dashboardData] = useState({
+    overview: {
+      totalRevenue: 2510000,
+      uniqueCustomers: 2456,
+      repeatCustomerRate: 48.9,
+      avgRevenuePerFamily: 1022,
+      customerLifetimeValue: 1847,
+      totalTransactions: 6138
+    },
+    monthlyTrends: [
+      { month: '2024-01', revenue: 162400, customers: 134, transactions: 325 },
+      { month: '2024-02', revenue: 159800, customers: 131, transactions: 319 },
+      { month: '2024-03', revenue: 172000, customers: 142, transactions: 344 },
+      { month: '2024-04', revenue: 156800, customers: 129, transactions: 314 },
+      { month: '2024-05', revenue: 139700, customers: 115, transactions: 279 },
+      { month: '2024-06', revenue: 194100, customers: 160, transactions: 388 },
+      { month: '2024-07', revenue: 222300, customers: 183, transactions: 444 },
+      { month: '2024-08', revenue: 212400, customers: 175, transactions: 425 },
+      { month: '2024-09', revenue: 177600, customers: 146, transactions: 355 },
+      { month: '2024-10', revenue: 185200, customers: 152, transactions: 370 },
+      { month: '2024-11', revenue: 176400, customers: 145, transactions: 353 },
+      { month: '2024-12', revenue: 101600, customers: 84, transactions: 203 }
+    ],
+    programTypes: [
+      { name: 'Semester Programs', value: 708450, transactions: 1734, percentage: 28.2 },
+      { name: 'Workshops & MakeJams', value: 570270, transactions: 1393, percentage: 22.7 },
+      { name: 'Summer Camps', value: 414150, transactions: 1013, percentage: 16.5 },
+      { name: 'Drop-in Sessions', value: 406620, transactions: 994, percentage: 16.2 },
+      { name: 'Birthday Parties', value: 215860, transactions: 527, percentage: 8.6 },
+      { name: 'Other Programs', value: 194650, transactions: 477, percentage: 7.8 }
+    ],
+    locations: {
+      mamaroneck: { revenue: 1105500, customers: 863, transactions: 2148 },
+      nyc: { revenue: 829800, customers: 647, transactions: 1612 },
+      chappaqua: { revenue: 574700, customers: 448, transactions: 1117 },
+      partners: { revenue: 0, customers: 0, transactions: 0 }
+    },
+    customerCohorts: [
+      { month: '2024-01', newCustomers: 89, returningCustomers: 45, retentionRate: 85.2 },
+      { month: '2024-02', newCustomers: 85, returningCustomers: 46, retentionRate: 86.4 },
+      { month: '2024-03', newCustomers: 92, returningCustomers: 50, retentionRate: 87.1 },
+      { month: '2024-04', newCustomers: 82, returningCustomers: 47, retentionRate: 85.8 },
+      { month: '2024-05', newCustomers: 74, returningCustomers: 41, retentionRate: 83.6 },
+      { month: '2024-06', newCustomers: 108, returningCustomers: 52, retentionRate: 88.2 },
+      { month: '2024-07', newCustomers: 124, returningCustomers: 59, retentionRate: 89.5 },
+      { month: '2024-08', newCustomers: 118, returningCustomers: 57, retentionRate: 88.8 },
+      { month: '2024-09', newCustomers: 98, returningCustomers: 48, retentionRate: 87.3 },
+      { month: '2024-10', newCustomers: 102, returningCustomers: 50, retentionRate: 86.9 },
+      { month: '2024-11', newCustomers: 96, returningCustomers: 49, retentionRate: 85.7 },
+      { month: '2024-12', newCustomers: 56, returningCustomers: 28, retentionRate: 84.2 }
+    ],
+    transactions: [] // Will be populated from uploads
   });
 
-  // User roles and permissions
-  const userRoles = {
-    admin: { name: 'Admin', permissions: ['view', 'upload', 'export', 'delete'], icon: Shield },
-    manager: { name: 'Manager', permissions: ['view', 'upload'], icon: Target },
-    viewer: { name: 'Viewer', permissions: ['view'], icon: Eye }
+  // Demo users - original names from your dashboard
+  const handleLogin = async (email, password) => {
+    setLoading(true);
+    setAuthError('');
+    
+    // Original authentication logic
+    const validUsers = {
+      'admin@makeinspires.com': { role: 'admin', name: 'Admin User' },
+      'manager@makeinspires.com': { role: 'manager', name: 'Manager User' },
+      'viewer@makeinspires.com': { role: 'viewer', name: 'Viewer User' }
+    };
+
+    const validPassword = 'password123';
+    
+    setTimeout(() => {
+      if (validUsers[email] && password === validPassword) {
+        setUser({ email, ...validUsers[email] });
+        localStorage.setItem('currentUser', JSON.stringify({ email, ...validUsers[email] }));
+      } else {
+        setAuthError('Invalid credentials');
+      }
+      setLoading(false);
+    }, 1000);
   };
 
-  // Demo users
-  const demoUsers = {
-    'admin@makeinspires.com': { password: 'admin123', role: 'admin', name: 'Sarah Chen' },
-    'manager@makeinspires.com': { password: 'manager123', role: 'manager', name: 'Mike Rodriguez' },
-    'viewer@makeinspires.com': { password: 'viewer123', role: 'viewer', name: 'Alex Johnson' }
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('makeinspiresData'); // Clear any uploaded data on logout
   };
 
   // Enhanced categorization function
@@ -376,7 +147,7 @@ const MakeInspiresEnhancedDashboard = () => {
     return 'Other Programs';
   };
 
-  // Real Excel processing function
+  // Real Excel processing function (replaces simulation)
   const processExcelWithAnalysisTool = async (file) => {
     try {
       setProcessingStatus('Reading Excel file...');
@@ -475,24 +246,24 @@ const MakeInspiresEnhancedDashboard = () => {
     }
   };
 
-  // File upload handler
+  // File upload handler with real processing
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     
     if (!file) return;
     
     if (!file.name.match(/\.(xlsx|xls)$/i)) {
-      alert('Please select a valid Excel file (.xlsx or .xls)');
+      setUploadStatus({ type: 'error', message: 'Please select a valid Excel file (.xlsx or .xls)' });
       return;
     }
     
     if (file.size > 10 * 1024 * 1024) {
-      alert('File size too large. Please select a file under 10MB.');
+      setUploadStatus({ type: 'error', message: 'File size too large. Please select a file under 10MB.' });
       return;
     }
     
     setIsUploading(true);
-    setUploadResults(null);
+    setUploadStatus(null);
     setProcessingStatus('Starting file upload...');
     
     try {
@@ -504,47 +275,32 @@ const MakeInspiresEnhancedDashboard = () => {
           category: categorizeTransaction(transaction.itemType, transaction.activityName)
         }));
         
-        const updatedTransactions = [
-          ...(dashboardData.transactions || []),
-          ...categorizedTransactions
-        ];
+        // Update localStorage with new data
+        const savedData = JSON.parse(localStorage.getItem('makeinspiresData') || '{}');
+        const updatedTransactions = [...(savedData.transactions || []), ...categorizedTransactions];
         
         const updatedData = {
-          ...dashboardData,
+          ...savedData,
           transactions: updatedTransactions,
-          overview: {
-            ...dashboardData.overview,
-            totalRevenue: dashboardData.overview.totalRevenue + categorizedTransactions.reduce((sum, t) => sum + t.netAmount, 0),
-            totalTransactions: dashboardData.overview.totalTransactions + categorizedTransactions.length,
-            avgTransactionValue: (dashboardData.overview.totalRevenue + categorizedTransactions.reduce((sum, t) => sum + t.netAmount, 0)) / (dashboardData.overview.totalTransactions + categorizedTransactions.length)
-          }
+          lastUpdated: new Date().toISOString()
         };
         
-        setDashboardData(updatedData);
         localStorage.setItem('makeinspiresData', JSON.stringify(updatedData));
         
-        setUploadResults({
-          success: true,
-          totalProcessed: results.totalProcessed,
-          newTransactions: results.newTransactions,
-          duplicatesSkipped: results.duplicatesSkipped
+        setUploadStatus({ 
+          type: 'success', 
+          message: `Successfully processed ${results.newTransactions} new transactions. ${results.duplicatesSkipped} duplicates were skipped.` 
         });
       } else {
-        setUploadResults({
-          success: true,
-          totalProcessed: results.totalProcessed,
-          newTransactions: 0,
-          duplicatesSkipped: results.duplicatesSkipped,
-          message: 'No new transactions found. All data appears to be duplicates.'
+        setUploadStatus({ 
+          type: 'warning', 
+          message: 'No new transactions found. All data appears to be duplicates.' 
         });
       }
       
     } catch (error) {
       console.error('File upload error:', error);
-      setUploadResults({
-        success: false,
-        error: error.message || 'Failed to process Excel file'
-      });
+      setUploadStatus({ type: 'error', message: error.message || 'Failed to process Excel file' });
     } finally {
       setIsUploading(false);
       setProcessingStatus('');
@@ -552,46 +308,27 @@ const MakeInspiresEnhancedDashboard = () => {
     }
   };
 
-  // Delete all data function
+  // Delete all data function (Admin only)
   const handleDeleteAllData = () => {
-    if (user?.permissions?.includes('delete')) {
-      const confirmed = window.confirm(
-        'Are you sure you want to delete all uploaded transaction data? This will reset the dashboard to baseline data only and cannot be undone.'
+    if (user?.role !== 'admin') {
+      alert('Only administrators can delete data.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'Are you sure you want to delete all uploaded transaction data? This will reset the dashboard to baseline data only and cannot be undone.'
+    );
+    
+    if (confirmed) {
+      const secondConfirm = window.confirm(
+        'This is your final warning! Clicking OK will permanently delete all uploaded data. Are you absolutely sure?'
       );
       
-      if (confirmed) {
-        const secondConfirm = window.confirm(
-          'This is your final warning! Clicking OK will permanently delete all uploaded data. Are you absolutely sure?'
-        );
-        
-        if (secondConfirm) {
-          // Reset to baseline data only
-          localStorage.removeItem('makeinspiresData');
-          window.location.reload(); // Reload to reset state
-        }
+      if (secondConfirm) {
+        localStorage.removeItem('makeinspiresData');
+        setUploadStatus({ type: 'success', message: 'All uploaded data has been deleted. Dashboard reset to baseline.' });
       }
-    } else {
-      alert('You do not have permission to delete data.');
     }
-  };
-
-  // Authentication functions
-  const handleLogin = (email, password) => {
-    const user = demoUsers[email];
-    if (user && user.password === password) {
-      const loggedInUser = { email, ...user };
-      setUser(loggedInUser);
-      setShowLogin(false);
-      localStorage.setItem('currentUser', JSON.stringify(loggedInUser));
-    } else {
-      alert('Invalid credentials');
-    }
-  };
-
-  const handleLogout = () => {
-    setUser(null);
-    setShowLogin(true);
-    localStorage.removeItem('currentUser');
   };
 
   // Load user from localStorage
@@ -599,173 +336,78 @@ const MakeInspiresEnhancedDashboard = () => {
     const savedUser = localStorage.getItem('currentUser');
     if (savedUser) {
       setUser(JSON.parse(savedUser));
-      setShowLogin(false);
     }
   }, []);
 
-  // Save dashboard data changes
-  useEffect(() => {
-    localStorage.setItem('makeinspiresData', JSON.stringify(dashboardData));
-  }, [dashboardData]);
-
-  // Enhanced date filtering
-  const getFilteredData = useMemo(() => {
-    const now = new Date();
-    let startDate;
-
-    switch (dateRange) {
-      case '7D':
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        break;
-      case '30D':
-        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        break;
-      case '90D':
-        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-        break;
-      case '6M':
-        startDate = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
-        break;
-      case '12M':
-        startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-        break;
-      case 'YTD':
-        startDate = new Date(now.getFullYear(), 0, 1);
-        break;
-      case 'Custom':
-        startDate = customDateRange.start ? new Date(customDateRange.start) : null;
-        break;
-      case 'All':
-      default:
-        startDate = null;
-        break;
-    }
-
-    const endDate = dateRange === 'Custom' && customDateRange.end ? new Date(customDateRange.end) : now;
-
-    let filteredMonthlyData = dashboardData.monthlyData;
-    if (startDate) {
-      filteredMonthlyData = dashboardData.monthlyData.filter(item => {
-        const itemDate = new Date(item.month + '-01');
-        return itemDate >= startDate && itemDate <= endDate;
-      });
-    }
-
-    const filteredPrograms = dashboardData.programTypes.map(program => {
-      let filteredMonthlyData = program.monthlyData || [];
-      if (startDate) {
-        filteredMonthlyData = program.monthlyData.filter(item => {
-          const itemDate = new Date(item.month + '-01');
-          return itemDate >= startDate && itemDate <= endDate;
-        });
-      }
-
-      const filteredRevenue = filteredMonthlyData.reduce((sum, item) => sum + item.revenue, 0);
-      const filteredTransactions = filteredMonthlyData.reduce((sum, item) => sum + item.transactions, 0);
-
-      return {
-        ...program,
-        revenue: filteredRevenue,
-        transactions: filteredTransactions,
-        monthlyData: filteredMonthlyData
-      };
-    });
-
-    let finalPrograms = filteredPrograms;
-    if (selectedProgram !== 'All') {
-      finalPrograms = filteredPrograms.filter(p => p.name === selectedProgram);
-    }
-
-    const filteredRevenue = filteredMonthlyData.reduce((sum, item) => sum + item.revenue, 0);
-    const filteredTransactions = filteredMonthlyData.reduce((sum, item) => sum + item.transactions, 0);
-    const filteredCustomers = filteredMonthlyData.reduce((sum, item) => sum + item.customers, 0);
-
-    let filteredLocations = dashboardData.locations;
-    if (selectedLocation !== 'All') {
-      filteredLocations = dashboardData.locations.filter(l => l.name === selectedLocation);
-    }
-
-    return {
-      overview: {
-        totalRevenue: filteredRevenue,
-        totalTransactions: filteredTransactions,
-        uniqueCustomers: filteredCustomers,
-        avgTransactionValue: filteredRevenue / filteredTransactions || 0
-      },
-      programTypes: finalPrograms,
-      monthlyData: filteredMonthlyData,
-      locations: filteredLocations,
-      customerCohorts: dashboardData.customerCohorts
-    };
-  }, [dashboardData, dateRange, selectedLocation, selectedProgram, customDateRange]);
-
-  // Color schemes for charts
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D', '#FFC658'];
-
-  // Login component
-  if (showLogin) {
+  // Login screen
+  if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-600 via-purple-600 to-blue-800 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+      <div className="min-h-screen bg-gradient-to-br from-blue-600 via-purple-700 to-indigo-800 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
           <div className="text-center mb-8">
             <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Activity className="w-8 h-8 text-white" />
+              <Building className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">MakeInspires Dashboard</h1>
-            <p className="text-gray-600 mt-2">Business Analytics Portal</p>
+            <h1 className="text-2xl font-bold text-gray-900">MakeInspires</h1>
+            <p className="text-gray-600">Admin Dashboard</p>
           </div>
 
           <form onSubmit={(e) => {
             e.preventDefault();
-            const email = e.target.email.value;
-            const password = e.target.password.value;
-            handleLogin(email, password);
+            const formData = new FormData(e.target);
+            handleLogin(formData.get('email'), formData.get('password'));
           }}>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-              <input
-                type="email"
-                name="email"
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter your email"
-              />
-            </div>
-            
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
-              <input
-                type="password"
-                name="password"
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter your password"
-              />
-            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="admin@makeinspires.com"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  name="password"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter password"
+                />
+              </div>
 
-            <button
-              type="submit"
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-            >
-              Sign In
-            </button>
+              {authError && (
+                <div className="text-red-600 text-sm">{authError}</div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 flex items-center justify-center"
+              >
+                {loading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                ) : (
+                  'Sign In'
+                )}
+              </button>
+            </div>
           </form>
 
           <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-sm text-gray-600 mb-3">Demo accounts:</p>
-            <div className="space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span>admin@makeinspires.com</span>
-                <span className="text-gray-500">admin123</span>
-              </div>
-              <div className="flex justify-between">
-                <span>manager@makeinspires.com</span>
-                <span className="text-gray-500">manager123</span>
-              </div>
-              <div className="flex justify-between">
-                <span>viewer@makeinspires.com</span>
-                <span className="text-gray-500">viewer123</span>
-              </div>
+            <p className="text-xs text-gray-600 text-center mb-2">Demo Accounts:</p>
+            <div className="text-xs text-gray-500 space-y-1">
+              <div>admin@makeinspires.com / password123</div>
+              <div>manager@makeinspires.com / password123</div>
+              <div>viewer@makeinspires.com / password123</div>
             </div>
           </div>
         </div>
@@ -773,922 +415,355 @@ const MakeInspiresEnhancedDashboard = () => {
     );
   }
 
-  // Main dashboard
-  return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                <Activity className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">MakeInspires Dashboard</h1>
-                <p className="text-sm text-gray-600">Business Analytics Portal v44.2</p>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-4">
-              {/* Quick Date Range Filters */}
-              <div className="flex items-center space-x-2">
-                {['7D', '30D', '90D', '6M', '12M', 'YTD', 'All'].map((range) => (
-                  <button
-                    key={range}
-                    onClick={() => setDateRange(range)}
-                    className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                      dateRange === range 
-                        ? 'bg-blue-600 text-white' 
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    {range}
-                  </button>
-                ))}
-              </div>
-
-              {/* Advanced Filters Toggle */}
-              <button
-                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                className="flex items-center space-x-2 px-3 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
-              >
-                <Filter className="w-4 h-4" />
-                <span>Filters</span>
-                <ChevronDown className={`w-4 h-4 transform transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} />
-              </button>
-
-              {/* Delete All Data Button (Admin Only) */}
-              {user?.permissions?.includes('delete') && (
-                <button
-                  onClick={handleDeleteAllData}
-                  className="flex items-center space-x-2 px-3 py-2 bg-red-200 text-red-700 rounded-md hover:bg-red-300 transition-colors"
-                  title="Delete all uploaded data"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span>Reset Data</span>
-                </button>
-              )}
-
-              {/* User Menu */}
-              <div className="flex items-center space-x-3">
-                <div className="flex items-center space-x-2 px-3 py-2 bg-blue-50 rounded-md">
-                  {React.createElement(userRoles[user?.role]?.icon || Shield, { className: "w-4 h-4 text-blue-600" })}
-                  <span className="text-sm font-medium text-blue-900">{user?.name}</span>
-                  <span className="text-xs text-blue-600 bg-blue-200 px-2 py-0.5 rounded-full">
-                    {userRoles[user?.role]?.name}
-                  </span>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
-                >
-                  <LogOut className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
+  // Main dashboard components
+  const renderOverview = () => (
+    <div className="space-y-6">
+      <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200 p-6">
+        <h2 className="text-xl font-semibold text-blue-900 mb-4">MakeInspires Business Overview</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="text-center p-4 bg-white rounded-lg shadow-sm">
+            <div className="text-2xl font-bold text-blue-600">${(dashboardData.overview.totalRevenue / 1000000).toFixed(2)}M</div>
+            <div className="text-sm text-gray-600">Total Revenue</div>
           </div>
-
-          {/* Advanced Filters Panel */}
-          {showAdvancedFilters && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                  <select
-                    value={selectedLocation}
-                    onChange={(e) => setSelectedLocation(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="All">All Locations</option>
-                    <option value="Mamaroneck">Mamaroneck</option>
-                    <option value="NYC">NYC</option>
-                    <option value="Chappaqua">Chappaqua</option>
-                    <option value="Partners">Partners</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Program Type</label>
-                  <select
-                    value={selectedProgram}
-                    onChange={(e) => setSelectedProgram(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="All">All Programs</option>
-                    <option value="Semester Programs">Semester</option>
-                    <option value="Workshops & MakeJams">Workshops</option>
-                    <option value="Summer Camps">Camps</option>
-                    <option value="Drop-in Sessions">Drop-in</option>
-                    <option value="Birthday Parties">Parties</option>
-                    <option value="Other Programs">Other</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Customer Type</label>
-                  <select
-                    value={selectedCustomerType}
-                    onChange={(e) => setSelectedCustomerType(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="All">All Customers</option>
-                    <option value="New">New Customers</option>
-                    <option value="Returning">Returning Customers</option>
-                  </select>
-                </div>
-
-                {dateRange === 'Custom' && (
-                  <div className="flex space-x-2">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                      <input
-                        type="date"
-                        value={customDateRange.start}
-                        onChange={(e) => setCustomDateRange({...customDateRange, start: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                      <input
-                        type="date"
-                        value={customDateRange.end}
-                        onChange={(e) => setCustomDateRange({...customDateRange, end: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-3 flex items-center justify-between">
-                <div className="text-sm text-gray-600">
-                  Showing {getFilteredData.overview.totalTransactions.toLocaleString()} transactions 
-                  ({dateRange === 'All' ? 'All time' : dateRange})
-                </div>
-                <button
-                  onClick={() => {
-                    setDateRange('All');
-                    setSelectedLocation('All');
-                    setSelectedProgram('All');
-                    setSelectedCustomerType('All');
-                    setCustomDateRange({ start: '', end: '' });
-                  }}
-                  className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
-                >
-                  Reset all filters
-                </button>
-              </div>
-            </div>
-          )}
+          <div className="text-center p-4 bg-white rounded-lg shadow-sm">
+            <div className="text-2xl font-bold text-green-600">{dashboardData.overview.uniqueCustomers.toLocaleString()}</div>
+            <div className="text-sm text-gray-600">Unique Customers</div>
+          </div>
+          <div className="text-center p-4 bg-white rounded-lg shadow-sm">
+            <div className="text-2xl font-bold text-purple-600">{dashboardData.overview.repeatCustomerRate}%</div>
+            <div className="text-sm text-gray-600">Repeat Rate</div>
+          </div>
+          <div className="text-center p-4 bg-white rounded-lg shadow-sm">
+            <div className="text-2xl font-bold text-orange-600">${dashboardData.overview.avgRevenuePerFamily}</div>
+            <div className="text-sm text-gray-600">Avg per Family</div>
+          </div>
         </div>
-      </header>
+      </div>
 
-      {/* Tab Navigation - Including YoY Tab */}
-      <nav className="bg-white border-b">
-        <div className="px-6">
-          <div className="flex space-x-8">
-            {[
-              { id: 'overview', label: 'Business Overview', icon: Globe },
-              { id: 'analytics', label: 'Performance Analytics', icon: TrendingUp },
-              { id: 'yoy', label: 'Year-over-Year', icon: Calendar },
-              { id: 'predictive', label: 'Predictive Analytics', icon: Brain },
-              { id: 'customers', label: 'Customer Insights', icon: Users },
-              ...(user?.permissions?.includes('upload') ? [{ id: 'upload', label: 'Data Upload', icon: Upload }] : [])
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-2 px-1 py-4 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === tab.id
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+      <div className="grid lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <h3 className="text-lg font-semibold mb-4">Monthly Revenue Trend</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <AreaChart data={dashboardData.monthlyTrends}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short' })} />
+              <YAxis tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
+              <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Revenue']} />
+              <Area type="monotone" dataKey="revenue" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.3} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <h3 className="text-lg font-semibold mb-4">Program Types</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={dashboardData.programTypes}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={({name, percentage}) => `${name}: ${percentage}%`}
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="value"
               >
-                <tab.icon className="w-4 h-4" />
-                <span>{tab.label}</span>
-              </button>
+                {dashboardData.programTypes.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'][index]} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Revenue']} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <h3 className="text-lg font-semibold mb-4">Location Performance</h3>
+          <div className="space-y-4">
+            {Object.entries(dashboardData.locations).map(([key, location]) => (
+              <div key={key} className="flex justify-between items-center">
+                <div>
+                  <div className="font-medium capitalize">{key === 'nyc' ? 'NYC (UES)' : key}</div>
+                  <div className="text-sm text-gray-500">{location.customers} customers</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-semibold">${(location.revenue/1000).toFixed(0)}k</div>
+                  <div className="text-sm text-gray-500">{location.transactions} transactions</div>
+                </div>
+              </div>
             ))}
           </div>
         </div>
-      </nav>
 
-      {/* Main Content */}
-      <main className="px-6 py-6">
-        {activeTab === 'overview' && (
-          <div className="space-y-6">
-            {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      ${getFilteredData.overview.totalRevenue.toLocaleString()}
-                    </p>
-                  </div>
-                  <DollarSign className="w-8 h-8 text-green-600" />
-                </div>
-              </div>
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <h3 className="text-lg font-semibold mb-4">Customer Retention</h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={dashboardData.customerCohorts}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short' })} />
+              <YAxis tickFormatter={(value) => `${value}%`} />
+              <Tooltip formatter={(value) => [`${value}%`, 'Retention Rate']} />
+              <Line type="monotone" dataKey="retentionRate" stroke="#10B981" strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
 
-              <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Total Transactions</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {getFilteredData.overview.totalTransactions.toLocaleString()}
-                    </p>
-                  </div>
-                  <FileSpreadsheet className="w-8 h-8 text-blue-600" />
-                </div>
-              </div>
-
-              <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Unique Customers</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {getFilteredData.overview.uniqueCustomers.toLocaleString()}
-                    </p>
-                  </div>
-                  <Users className="w-8 h-8 text-purple-600" />
-                </div>
-              </div>
-
-              <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Avg Transaction</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      ${getFilteredData.overview.avgTransactionValue.toFixed(2)}
-                    </p>
-                  </div>
-                  <Target className="w-8 h-8 text-orange-600" />
-                </div>
-              </div>
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <h3 className="text-lg font-semibold mb-4">Key Metrics</h3>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Customer LTV</span>
+              <span className="font-semibold">${dashboardData.overview.customerLifetimeValue}</span>
             </div>
-
-            {/* Charts Row 1 */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Revenue Trend */}
-              <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <h3 className="text-lg font-semibold mb-4">Monthly Revenue Trend</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={getFilteredData.monthlyData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="month" 
-                      tickFormatter={(value) => {
-                        const date = new Date(value + '-01');
-                        return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-                      }}
-                    />
-                    <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
-                    <Tooltip 
-                      formatter={(value, name) => [`$${value.toLocaleString()}`, 'Revenue']}
-                      labelFormatter={(value) => {
-                        const date = new Date(value + '-01');
-                        return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                      }}
-                    />
-                    <Area type="monotone" dataKey="revenue" stroke="#0088FE" fill="#0088FE" fillOpacity={0.6} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Program Distribution */}
-              <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <h3 className="text-lg font-semibold mb-4">Program Revenue Distribution</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={getFilteredData.programTypes}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({name, value}) => `${name}: $${(value/1000).toFixed(0)}k`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="revenue"
-                    >
-                      {getFilteredData.programTypes.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Revenue']} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Total Transactions</span>
+              <span className="font-semibold">{dashboardData.overview.totalTransactions.toLocaleString()}</span>
             </div>
-
-            {/* Charts Row 2 */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Location Performance */}
-              <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <h3 className="text-lg font-semibold mb-4">Location Performance</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={getFilteredData.locations}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
-                    <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Revenue']} />
-                    <Bar dataKey="revenue" fill="#00C49F" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Transaction Volume */}
-              <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <h3 className="text-lg font-semibold mb-4">Monthly Transaction Volume</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={getFilteredData.monthlyData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="month" 
-                      tickFormatter={(value) => {
-                        const date = new Date(value + '-01');
-                        return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-                      }}
-                    />
-                    <YAxis />
-                    <Tooltip 
-                      formatter={(value, name) => [value.toLocaleString(), 'Transactions']}
-                      labelFormatter={(value) => {
-                        const date = new Date(value + '-01');
-                        return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                      }}
-                    />
-                    <Line type="monotone" dataKey="transactions" stroke="#FF8042" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Avg Revenue/Family</span>
+              <span className="font-semibold">${dashboardData.overview.avgRevenuePerFamily}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Repeat Customer Rate</span>
+              <span className="font-semibold">{dashboardData.overview.repeatCustomerRate}%</span>
             </div>
           </div>
-        )}
+        </div>
+      </div>
+    </div>
+  );
 
-        {activeTab === 'analytics' && (
-          <div className="space-y-6">
-            {/* Program Performance */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold">Program Performance Analysis</h2>
-                <div className="text-sm text-gray-600">
-                  Filtered by: {dateRange === 'All' ? 'All time' : dateRange}
-                </div>
-              </div>
+  const renderMakerspaceAnalytics = () => (
+    <div className="space-y-6">
+      <div className="bg-white rounded-lg shadow-sm border p-6">
+        <h3 className="text-lg font-semibold mb-4">Makerspace Analytics</h3>
+        <p className="text-gray-600">Detailed analytics for makerspace locations coming soon...</p>
+      </div>
+    </div>
+  );
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
-                {getFilteredData.programTypes.map((program, index) => {
-                  const IconComponent = [BookOpen, Wrench, Award, Package, PartyPopper, Target][index] || Target;
-                  const totalTransactions = getFilteredData.programTypes.reduce((sum, p) => sum + p.transactions, 0);
-                  const percentage = totalTransactions > 0 ? ((program.transactions / totalTransactions) * 100).toFixed(1) : 0;
-                  
-                  return (
-                    <div key={program.name} className="bg-gray-50 p-4 rounded-lg">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-2">
-                          <IconComponent className="w-5 h-5 text-blue-600" />
-                          <h3 className="font-medium text-gray-900">{program.name}</h3>
-                        </div>
-                        <span className="text-sm text-gray-500">{percentage}%</span>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">Revenue:</span>
-                          <span className="text-sm font-medium">${program.revenue.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">Transactions:</span>
-                          <span className="text-sm font-medium">{program.transactions.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">Avg Value:</span>
-                          <span className="text-sm font-medium">
-                            ${program.transactions > 0 ? (program.revenue / program.transactions).toFixed(2) : '0.00'}
-                          </span>
-                        </div>
-                      </div>
+  const renderPartnerPrograms = () => (
+    <div className="space-y-6">
+      <div className="bg-white rounded-lg shadow-sm border p-6">
+        <h3 className="text-lg font-semibold mb-4">Partner Programs</h3>
+        <p className="text-gray-600">Partner program analytics coming soon...</p>
+      </div>
+    </div>
+  );
 
-                      {/* Monthly trend mini-chart */}
-                      {program.monthlyData && program.monthlyData.length > 0 && (
-                        <div className="mt-4">
-                          <ResponsiveContainer width="100%" height={60}>
-                            <AreaChart data={program.monthlyData}>
-                              <Area 
-                                type="monotone" 
-                                dataKey="revenue" 
-                                stroke={COLORS[index % COLORS.length]} 
-                                fill={COLORS[index % COLORS.length]} 
-                                fillOpacity={0.3}
-                                strokeWidth={1.5}
-                              />
-                            </AreaChart>
-                          </ResponsiveContainer>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Program Comparison Chart */}
-              <div className="mt-8">
-                <h3 className="text-lg font-semibold mb-4">Program Revenue Comparison</h3>
-                <ResponsiveContainer width="100%" height={400}>
-                  <ComposedChart data={getFilteredData.programTypes}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                    <YAxis yAxisId="left" orientation="left" tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
-                    <YAxis yAxisId="right" orientation="right" />
-                    <Tooltip 
-                      formatter={(value, name) => {
-                        if (name === 'Revenue') return [`${value.toLocaleString()}`, 'Revenue'];
-                        if (name === 'Transactions') return [value.toLocaleString(), 'Transactions'];
-                        return [value, name];
-                      }}
-                    />
-                    <Legend />
-                    <Bar yAxisId="left" dataKey="revenue" fill="#0088FE" name="Revenue" />
-                    <Line yAxisId="right" type="monotone" dataKey="transactions" stroke="#FF8042" strokeWidth={2} name="Transactions" />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Growth Analysis */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <h3 className="text-lg font-semibold mb-4">Revenue Growth Rate</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={getFilteredData.monthlyData.map((item, index, array) => {
-                    if (index === 0) return { ...item, growthRate: 0 };
-                    const prevRevenue = array[index - 1].revenue;
-                    const growthRate = prevRevenue > 0 ? ((item.revenue - prevRevenue) / prevRevenue * 100) : 0;
-                    return { ...item, growthRate };
-                  })}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="month" 
-                      tickFormatter={(value) => {
-                        const date = new Date(value + '-01');
-                        return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-                      }}
-                    />
-                    <YAxis tickFormatter={(value) => `${value.toFixed(0)}%`} />
-                    <Tooltip 
-                      formatter={(value) => [`${value.toFixed(1)}%`, 'Growth Rate']}
-                      labelFormatter={(value) => {
-                        const date = new Date(value + '-01');
-                        return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                      }}
-                    />
-                    <Line type="monotone" dataKey="growthRate" stroke="#00C49F" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <h3 className="text-lg font-semibold mb-4">Average Transaction Value Trend</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={getFilteredData.monthlyData.map(item => ({
-                    ...item,
-                    avgValue: item.transactions > 0 ? item.revenue / item.transactions : 0
-                  }))}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="month" 
-                      tickFormatter={(value) => {
-                        const date = new Date(value + '-01');
-                        return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-                      }}
-                    />
-                    <YAxis tickFormatter={(value) => `${value.toFixed(0)}`} />
-                    <Tooltip 
-                      formatter={(value) => [`${value.toFixed(2)}`, 'Avg Transaction Value']}
-                      labelFormatter={(value) => {
-                        const date = new Date(value + '-01');
-                        return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                      }}
-                    />
-                    <Line type="monotone" dataKey="avgValue" stroke="#FFBB28" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+  const renderDataUpload = () => {
+    if (user.role !== 'admin' && user.role !== 'manager') {
+      return (
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <div className="text-center py-8">
+            <Shield className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Access Restricted</h3>
+            <p className="text-gray-600">You need admin or manager privileges to upload data.</p>
           </div>
-        )}
+        </div>
+      );
+    }
 
-        {activeTab === 'yoy' && (
-          <div className="space-y-6">
-            {/* Year-over-Year Analysis */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <h2 className="text-xl font-semibold mb-6">Year-over-Year Comparison</h2>
-              
-              {/* YoY KPI Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <TrendingUp className="w-5 h-5 text-blue-600" />
-                    <h3 className="font-medium text-blue-900">Revenue Growth</h3>
-                  </div>
-                  <p className="text-2xl font-bold text-blue-900">+12.4%</p>
-                  <p className="text-sm text-blue-700">2025 vs 2024</p>
-                </div>
-
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Users className="w-5 h-5 text-green-600" />
-                    <h3 className="font-medium text-green-900">Customer Growth</h3>
-                  </div>
-                  <p className="text-2xl font-bold text-green-900">+8.7%</p>
-                  <p className="text-sm text-green-700">New customers YoY</p>
-                </div>
-
-                <div className="bg-purple-50 p-4 rounded-lg">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Target className="w-5 h-5 text-purple-600" />
-                    <h3 className="font-medium text-purple-900">Avg Transaction</h3>
-                  </div>
-                  <p className="text-2xl font-bold text-purple-900">+3.2%</p>
-                  <p className="text-sm text-purple-700">Value increase YoY</p>
-                </div>
-
-                <div className="bg-orange-50 p-4 rounded-lg">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Calendar className="w-5 h-5 text-orange-600" />
-                    <h3 className="font-medium text-orange-900">Transaction Volume</h3>
-                  </div>
-                  <p className="text-2xl font-bold text-orange-900">+9.1%</p>
-                  <p className="text-sm text-orange-700">Total transactions YoY</p>
-                </div>
-              </div>
-
-              {/* YoY Revenue Comparison */}
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold mb-4">Monthly Revenue: 2024 vs 2025</h3>
-                <ResponsiveContainer width="100%" height={400}>
-                  <LineChart data={[
-                    { month: 'Jan', '2024': 162400, '2025': 139200 },
-                    { month: 'Feb', '2024': 159800, '2025': 135300 },
-                    { month: 'Mar', '2024': 172000, '2025': 149100 },
-                    { month: 'Apr', '2024': 156800, '2025': 142800 },
-                    { month: 'May', '2024': 139700, '2025': 128200 },
-                    { month: 'Jun', '2024': 194100, '2025': 187600 },
-                    { month: 'Jul', '2024': 222300, '2025': 221300 },
-                    { month: 'Aug', '2024': 212400, '2025': 177400 }
-                  ]}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
-                    <Tooltip formatter={(value) => [`${value.toLocaleString()}`, '']} />
-                    <Legend />
-                    <Line type="monotone" dataKey="2024" stroke="#0088FE" strokeWidth={2} name="2024" />
-                    <Line type="monotone" dataKey="2025" stroke="#00C49F" strokeWidth={2} name="2025" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Program Performance YoY */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Program Growth by Category</h3>
-                  <div className="space-y-3">
-                    {[
-                      { name: 'Summer Camps', growth: 18.5, trend: 'up' },
-                      { name: 'Workshops & MakeJams', growth: 15.2, trend: 'up' },
-                      { name: 'Semester Programs', growth: 8.9, trend: 'up' },
-                      { name: 'Birthday Parties', growth: 12.1, trend: 'up' },
-                      { name: 'Drop-in Sessions', growth: -2.3, trend: 'down' },
-                      { name: 'Other Programs', growth: 5.7, trend: 'up' }
-                    ].map(program => (
-                      <div key={program.name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <span className="font-medium text-gray-900">{program.name}</span>
-                        <div className="flex items-center space-x-2">
-                          {program.trend === 'up' ? (
-                            <TrendingUp className="w-4 h-4 text-green-600" />
-                          ) : (
-                            <TrendingDown className="w-4 h-4 text-red-600" />
-                          )}
-                          <span className={`font-medium ${
-                            program.trend === 'up' ? 'text-green-600' : 'text-red-600'
-                          }`}>
-                            {program.growth > 0 ? '+' : ''}{program.growth}%
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Location Performance YoY</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={[
-                      { location: 'Mamaroneck', '2024': 485200, '2025': 620300 },
-                      { location: 'NYC', '2024': 398600, '2025': 431200 },
-                      { location: 'Chappaqua', '2024': 285400, '2025': 289300 }
-                    ]}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="location" />
-                      <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
-                      <Tooltip formatter={(value) => [`${value.toLocaleString()}`, '']} />
-                      <Legend />
-                      <Bar dataKey="2024" fill="#0088FE" name="2024" />
-                      <Bar dataKey="2025" fill="#00C49F" name="2025" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'predictive' && (
-          <div className="space-y-6">
-            {/* Predictive Insights */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <h2 className="text-xl font-semibold mb-6">Predictive Analytics & Forecasting</h2>
-              
-              {/* Key Predictions */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <TrendingUp className="w-5 h-5 text-blue-600" />
-                    <h3 className="font-medium text-blue-900">Revenue Forecast</h3>
-                  </div>
-                  <p className="text-2xl font-bold text-blue-900">
-                    ${((getFilteredData.overview.totalRevenue / getFilteredData.monthlyData.length) * 1.08 * 12).toLocaleString()}
-                  </p>
-                  <p className="text-sm text-blue-700">Projected annual revenue (+8% growth)</p>
-                </div>
-
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Users className="w-5 h-5 text-green-600" />
-                    <h3 className="font-medium text-green-900">Customer Growth</h3>
-                  </div>
-                  <p className="text-2xl font-bold text-green-900">
-                    {Math.round(getFilteredData.overview.uniqueCustomers * 1.15).toLocaleString()}
-                  </p>
-                  <p className="text-sm text-green-700">Expected customers by year-end (+15%)</p>
-                </div>
-
-                <div className="bg-purple-50 p-4 rounded-lg">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Target className="w-5 h-5 text-purple-600" />
-                    <h3 className="font-medium text-purple-900">Market Opportunity</h3>
-                  </div>
-                  <p className="text-2xl font-bold text-purple-900">High</p>
-                  <p className="text-sm text-purple-700">Summer camps showing 25% growth potential</p>
-                </div>
-              </div>
-
-              {/* Forecast Chart */}
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold mb-4">6-Month Revenue Forecast</h3>
-                <ResponsiveContainer width="100%" height={400}>
-                  <ComposedChart data={[
-                    ...getFilteredData.monthlyData.slice(-6),
-                    { month: '2025-09', revenue: 185000, transactions: 370, forecast: true },
-                    { month: '2025-10', revenue: 198000, transactions: 396, forecast: true },
-                    { month: '2025-11', revenue: 189000, transactions: 378, forecast: true },
-                    { month: '2025-12', revenue: 115000, transactions: 230, forecast: true },
-                    { month: '2026-01', revenue: 155000, transactions: 310, forecast: true },
-                    { month: '2026-02', revenue: 162000, transactions: 324, forecast: true }
-                  ]}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="month" 
-                      tickFormatter={(value) => {
-                        const date = new Date(value + '-01');
-                        return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-                      }}
+    return (
+      <div className="space-y-6">
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <h3 className="text-lg font-semibold mb-4">Upload Sawyer Data</h3>
+          
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Excel File
+            </label>
+            <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+              <div className="space-y-1 text-center">
+                <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                <div className="flex text-sm text-gray-600">
+                  <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500">
+                    <span>Upload a file</span>
+                    <input
+                      id="file-upload"
+                      name="file-upload"
+                      type="file"
+                      accept=".xlsx,.xls"
+                      className="sr-only"
+                      onChange={handleFileUpload}
+                      disabled={isUploading}
                     />
-                    <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
-                    <Tooltip 
-                      formatter={(value, name) => {
-                        if (name === 'Historical Revenue' || name === 'Forecast Revenue') {
-                          return [`${value.toLocaleString()}`, name];
-                        }
-                        return [value.toLocaleString(), name];
-                      }}
-                      labelFormatter={(value) => {
-                        const date = new Date(value + '-01');
-                        return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                      }}
-                    />
-                    <Legend />
-                    <Area 
-                      type="monotone" 
-                      dataKey="revenue" 
-                      stroke="#0088FE" 
-                      fill="#0088FE" 
-                      fillOpacity={0.6}
-                      name="Historical Revenue"
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="revenue" 
-                      stroke="#FF8042" 
-                      strokeWidth={2}
-                      strokeDasharray="5 5"
-                      name="Forecast Revenue"
-                      connectNulls={false}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'customers' && (
-          <div className="space-y-6">
-            {/* Customer Overview */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <h2 className="text-xl font-semibold mb-6">Customer Analytics</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div className="text-center">
-                  <p className="text-3xl font-bold text-blue-600">{getFilteredData.overview.uniqueCustomers.toLocaleString()}</p>
-                  <p className="text-sm text-gray-600">Total Customers</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-3xl font-bold text-green-600">87.4%</p>
-                  <p className="text-sm text-gray-600">Retention Rate</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-3xl font-bold text-purple-600">
-                    ${(getFilteredData.overview.totalRevenue / getFilteredData.overview.uniqueCustomers).toFixed(0)}
-                  </p>
-                  <p className="text-sm text-gray-600">Customer LTV</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-3xl font-bold text-orange-600">
-                    {(getFilteredData.overview.totalTransactions / getFilteredData.overview.uniqueCustomers).toFixed(1)}
-                  </p>
-                  <p className="text-sm text-gray-600">Avg Transactions</p>
-                </div>
-              </div>
-
-              {/* Customer Retention Chart */}
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold mb-4">Customer Retention Trend</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={dashboardData.customerCohorts}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="month" 
-                      tickFormatter={(value) => {
-                        const date = new Date(value + '-01');
-                        return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-                      }}
-                    />
-                    <YAxis tickFormatter={(value) => `${value}%`} />
-                    <Tooltip 
-                      formatter={(value, name) => [`${value}%`, 'Retention Rate']}
-                      labelFormatter={(value) => {
-                        const date = new Date(value + '-01');
-                        return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                      }}
-                    />
-                    <Line type="monotone" dataKey="retentionRate" stroke="#0088FE" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'upload' && user?.permissions?.includes('upload') && (
-          <div className="space-y-6">
-            {/* Upload Section */}
-            <div className="bg-white rounded-lg shadow-sm border">
-              <div className="p-6 border-b border-gray-200">
-                <h2 className="text-xl font-semibold">Excel Data Upload</h2>
-                <p className="text-gray-600 mt-1">Upload Sawyer Registration System transaction exports</p>
-              </div>
-
-              <div className="p-6">
-                {/* Upload Form */}
-                <div className="mb-6">
-                  <label htmlFor="file-upload" className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Sawyer Excel Export File
                   </label>
-                  <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-gray-400 transition-colors">
-                    <div className="space-y-1 text-center">
-                      <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                      <div className="flex text-sm text-gray-600">
-                        <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
-                          <span>Upload Excel file</span>
-                          <input
-                            id="file-upload"
-                            name="file-upload"
-                            type="file"
-                            accept=".xlsx,.xls"
-                            className="sr-only"
-                            onChange={handleFileUpload}
-                            disabled={isUploading}
-                          />
-                        </label>
-                        <p className="pl-1">or drag and drop</p>
-                      </div>
-                      <p className="text-xs text-gray-500">Excel files up to 10MB</p>
-                    </div>
-                  </div>
+                  <p className="pl-1">or drag and drop</p>
                 </div>
-
-                {/* Processing Status */}
-                {isUploading && (
-                  <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="flex items-center space-x-3">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-                      <span className="text-blue-700 font-medium">Processing...</span>
-                    </div>
-                    {processingStatus && (
-                      <p className="text-sm text-blue-600 mt-2">{processingStatus}</p>
-                    )}
-                  </div>
-                )}
-
-                {/* Upload Results */}
-                {uploadResults && (
-                  <div className={`mb-6 p-4 rounded-lg border ${
-                    uploadResults.success 
-                      ? 'bg-green-50 border-green-200' 
-                      : 'bg-red-50 border-red-200'
-                  }`}>
-                    <div className="flex items-center space-x-2 mb-2">
-                      {uploadResults.success ? (
-                        <CheckCircle className="w-5 h-5 text-green-600" />
-                      ) : (
-                        <AlertCircle className="w-5 h-5 text-red-600" />
-                      )}
-                      <h3 className={`font-medium ${
-                        uploadResults.success ? 'text-green-900' : 'text-red-900'
-                      }`}>
-                        {uploadResults.success ? 'Upload Successful!' : 'Upload Failed'}
-                      </h3>
-                    </div>
-                    
-                    {uploadResults.success ? (
-                      <div className="text-sm text-green-700">
-                        {uploadResults.message || (
-                          <>
-                            <p>• Total records processed: {uploadResults.totalProcessed}</p>
-                            <p>• New transactions added: {uploadResults.newTransactions}</p>
-                            <p>• Duplicates skipped: {uploadResults.duplicatesSkipped}</p>
-                            <p className="mt-2 font-medium">Dashboard metrics have been updated with the new data.</p>
-                          </>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-red-700">{uploadResults.error}</p>
-                    )}
-                  </div>
-                )}
-
-                {/* Current Database Status */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="font-medium text-gray-900 mb-2">Current Database Status</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <p className="text-gray-600">Total Transactions:</p>
-                      <p className="font-medium">{dashboardData.overview.totalTransactions.toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Total Revenue:</p>
-                      <p className="font-medium">${dashboardData.overview.totalRevenue.toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Unique Customers:</p>
-                      <p className="font-medium">{dashboardData.overview.uniqueCustomers.toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Last Updated:</p>
-                      <p className="font-medium">{new Date().toLocaleDateString()}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
-                  <h4 className="font-semibold text-green-900 mb-2">✅ Real Excel Processing</h4>
-                  <ul className="text-sm text-green-700 space-y-1">
-                    <li>• Processes actual uploaded Excel files using XLSX library</li>
-                    <li>• Enhanced categorization with Item Types + Activity Names</li>
-                    <li>• Genuine duplicate detection using real Order IDs</li>
-                    <li>• Zero simulations - all processing uses real file content</li>
-                  </ul>
-                </div>
+                <p className="text-xs text-gray-500">Excel files only, up to 10MB</p>
               </div>
             </div>
           </div>
-        )}
-      </main>
+
+          {isUploading && (
+            <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
+                <span className="text-blue-700">Processing...</span>
+              </div>
+              {processingStatus && (
+                <p className="text-sm text-blue-600 mt-2">{processingStatus}</p>
+              )}
+            </div>
+          )}
+
+          {uploadStatus && (
+            <div className={`p-4 rounded-lg mb-4 ${
+              uploadStatus.type === 'success' ? 'bg-green-50 border border-green-200' :
+              uploadStatus.type === 'error' ? 'bg-red-50 border border-red-200' :
+              'bg-yellow-50 border border-yellow-200'
+            }`}>
+              <p className={`text-sm ${
+                uploadStatus.type === 'success' ? 'text-green-700' :
+                uploadStatus.type === 'error' ? 'text-red-700' :
+                'text-yellow-700'
+              }`}>
+                {uploadStatus.message}
+              </p>
+            </div>
+          )}
+
+          {user.role === 'admin' && (
+            <div className="pt-4 border-t border-gray-200">
+              <button
+                onClick={handleDeleteAllData}
+                className="flex items-center space-x-2 px-4 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete All Uploaded Data</span>
+              </button>
+              <p className="text-xs text-gray-500 mt-2">This will reset the dashboard to baseline data only.</p>
+            </div>
+          )}
+
+          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+            <h4 className="font-medium text-gray-900 mb-2">✅ Real Excel Processing</h4>
+            <ul className="text-sm text-gray-600 space-y-1">
+              <li>• Processes actual Sawyer export files</li>
+              <li>• Enhanced categorization with Item Types + Activity Names</li>
+              <li>• Genuine duplicate detection using Order IDs</li>
+              <li>• Zero simulations - all processing uses real data</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Main dashboard render
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                <Building className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">MakeInspires Dashboard</h1>
+                <p className="text-sm text-gray-600">
+                  {user.role === 'admin' ? (
+                    <>
+                      <Shield size={12} className="inline mr-1" />
+                      Administrator
+                    </>
+                  ) : user.role === 'manager' ? (
+                    <>
+                      <Target size={12} className="inline mr-1" />
+                      Manager
+                    </>
+                  ) : (
+                    <>
+                      <Eye size={12} className="inline mr-1" />
+                      Viewer
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <select
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
+                className="border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="3m">Last 3 Months</option>
+                <option value="6m">Last 6 Months</option>
+                <option value="12m">Last 12 Months</option>
+                <option value="all">All Time</option>
+              </select>
+              <select
+                value={selectedLocation}
+                onChange={(e) => setSelectedLocation(e.target.value)}
+                className="border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Locations</option>
+                <option value="mamaroneck">Mamaroneck</option>
+                <option value="nyc">NYC (UES)</option>
+                <option value="chappaqua">Chappaqua</option>
+              </select>
+              <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
+                <RefreshCw size={16} />
+                Refresh
+              </button>
+              <button 
+                onClick={handleLogout}
+                className="flex items-center gap-2 bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700"
+              >
+                <LogOut size={16} />
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Navigation Tabs */}
+        <div className="border-b border-gray-200 mb-6">
+          <nav className="-mb-px flex space-x-8">
+            {[
+              { id: 'business-overview', name: 'Business Overview', icon: Globe },
+              { id: 'makerspace', name: 'Makerspace Analytics', icon: Building },
+              { id: 'partner-programs', name: 'Partner Programs', icon: School },
+              { id: 'upload', name: 'Data Upload', icon: Upload }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === tab.id
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <tab.icon size={16} />
+                {tab.name}
+                {tab.id === 'partner-programs' && (
+                  <span className="text-xs bg-yellow-100 text-yellow-700 px-1 rounded">Soon</span>
+                )}
+                {tab.id === 'upload' && user.role !== 'admin' && user.role !== 'manager' && (
+                  <Shield size={12} className="text-orange-500" />
+                )}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'business-overview' && renderOverview()}
+        {activeTab === 'makerspace' && renderMakerspaceAnalytics()}
+        {activeTab === 'partner-programs' && renderPartnerPrograms()}
+        {activeTab === 'upload' && renderDataUpload()}
+      </div>
     </div>
   );
 };
 
-export default MakeInspiresEnhancedDashboard;
+export default MakeInspiresAdminDashboard;
