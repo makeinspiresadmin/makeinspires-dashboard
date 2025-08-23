@@ -627,10 +627,15 @@ const MakeInspiresAdminDashboard = () => {
       
       setProcessingStatus('Checking for duplicates...');
       
-      const existingOrderIds = new Set(dashboardData.transactions?.map(t => t.orderId) || []);
+      // Enhanced duplicate detection - properly check current dashboard state
+      const currentTransactions = dashboardData.transactions || [];
+      const existingOrderIds = new Set(currentTransactions.map(t => t.orderId));
       const newTransactions = analysisResult.processedTransactions.filter(t => 
         !existingOrderIds.has(t.orderId)
       );
+      
+      console.log(`Existing Order IDs: ${existingOrderIds.size}`);
+      console.log(`New transactions after duplicate check: ${newTransactions.length}`);
       
       setProcessingStatus('Finalizing import...');
       
@@ -685,15 +690,21 @@ const MakeInspiresAdminDashboard = () => {
           ...categorizedTransactions
         ];
         
-        // Recalculate metrics
+        console.log(`Total transactions after upload: ${updatedTransactions.length}`);
+        
+        // Recalculate metrics from actual transaction data
+        const totalRevenue = updatedTransactions.reduce((sum, t) => sum + t.netAmount, 0);
+        const uniqueCustomers = new Set(updatedTransactions.map(t => t.customerEmail)).size;
+        
         const updatedData = {
           ...dashboardData,
           transactions: updatedTransactions,
           overview: {
             ...dashboardData.overview,
-            totalRevenue: dashboardData.overview.totalRevenue + categorizedTransactions.reduce((sum, t) => sum + t.netAmount, 0),
-            totalTransactions: dashboardData.overview.totalTransactions + categorizedTransactions.length,
-            avgTransactionValue: (dashboardData.overview.totalRevenue + categorizedTransactions.reduce((sum, t) => sum + t.netAmount, 0)) / (dashboardData.overview.totalTransactions + categorizedTransactions.length)
+            totalRevenue: totalRevenue,
+            totalTransactions: updatedTransactions.length,
+            uniqueCustomers: uniqueCustomers,
+            avgTransactionValue: totalRevenue / updatedTransactions.length
           },
           lastUpdated: new Date().toISOString()
         };
@@ -744,7 +755,7 @@ const MakeInspiresAdminDashboard = () => {
       );
       
       if (secondConfirm) {
-        // Clear ALL data from localStorage
+        // Clear ALL data from localStorage and force complete reset
         localStorage.removeItem('makeinspiresData');
         localStorage.removeItem('currentUser');
         
@@ -763,11 +774,12 @@ const MakeInspiresAdminDashboard = () => {
           monthlyTrends: [],
           locations: {},
           customerCohorts: [],
-          transactions: []
+          transactions: [] // This must be empty for duplicate detection to work
         };
         
         setDashboardData(emptyData);
-        setUploadStatus({ type: 'success', message: 'ALL data has been permanently deleted. Dashboard completely reset.' });
+        localStorage.setItem('makeinspiresData', JSON.stringify(emptyData)); // Save empty state
+        setUploadStatus({ type: 'success', message: 'ALL data has been permanently deleted. Dashboard completely reset. You can now upload new data.' });
       }
     }
   };
