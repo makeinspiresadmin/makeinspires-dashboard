@@ -170,7 +170,8 @@ const MakeInspiresAdminDashboard = () => {
 
   const handleLogin = async () => {
     setAuthError('');
-    const foundUser = mockUsers.find(u => u.email === email);
+    // Make email comparison case-insensitive
+    const foundUser = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase().trim());
     
     if (foundUser && password === 'demo123') {
       setUser(foundUser);
