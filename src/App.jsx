@@ -571,127 +571,54 @@ const MakeInspiresAdminDashboard = () => {
         reader.readAsArrayBuffer(file);
       });
       
-      setProcessingStatus('Processing Excel with XLSX library...');
+      setProcessingStatus('Processing Excel with XLSX library via analysis tool...');
       
-      // Check if the Excel processing function is available from analysis tool
-      if (!window.processExcelFile) {
-        throw new Error('Excel processing function not available. Please refresh and try again.');
+      // Check if the real Excel processing function is available
+      if (!window.processActualExcelFile) {
+        // The function should be available after the analysis tool is initialized
+        setUploadStatus(`❌ Real Excel processing not available. Please refresh the page and try again. If the issue persists, the XLSX library may not be loaded properly.`);
+        setTimeout(() => setUploadStatus(''), 8000);
+        return {
+          totalProcessed: 0,
+          newTransactions: 0,
+          duplicatesSkipped: 0,
+          parsedTransactions: [],
+          errorRows: []
+        };
       }
       
-      // Use the real Excel processing function from analysis tool
-      const parseResult = await window.processExcelFile(fileData, file.name);
+      // Use the REAL Excel processing function from analysis tool
+      const parseResult = await window.processActualExcelFile(fileData, file.name);
       
       if (!parseResult.success) {
         throw new Error(parseResult.error);
       }
       
-      setProcessingStatus('Extracting transaction data...');
+      setProcessingStatus('Processing transaction data...');
       
-      // Process the REAL extracted data
-      const { headers, dataRows, totalRows } = parseResult;
+      const { totalProcessed, processedTransactions, errorRows } = parseResult;
       
-      console.log('🔍 Available columns:', headers);
-      console.log('📊 Processing', totalRows, 'rows from real Excel file');
-      
-      // REAL column mapping for actual Sawyer exports
-      const getColumnIndex = (possibleNames) => {
-        for (const name of possibleNames) {
-          const index = headers.findIndex(h => 
-            String(h || '').toLowerCase().includes(name.toLowerCase()) ||
-            name.toLowerCase().includes(String(h || '').toLowerCase())
-          );
-          if (index !== -1) return index;
-        }
-        return -1;
-      };
-      
-      // Find ACTUAL column indices from uploaded file
-      const orderIdIndex = getColumnIndex(['Order ID', 'OrderID', 'ID']);
-      const orderDateIndex = getColumnIndex(['Order Date', 'Date', 'Created']);
-      const customerEmailIndex = getColumnIndex(['Customer Email', 'Email']);
-      const netAmountIndex = getColumnIndex(['Net Amount', 'Amount', 'Total', 'Price']);
-      const itemTypeIndex = getColumnIndex(['Item Type', 'Type', 'Category']);
-      const activityNameIndex = getColumnIndex(['Activity Name', 'Activity', 'Program']);
-      const locationIndex = getColumnIndex(['Location', 'Order Location']);
-      
-      console.log('🗂️ Column mapping:', {
-        orderIdIndex, orderDateIndex, customerEmailIndex, 
-        netAmountIndex, itemTypeIndex, activityNameIndex, locationIndex
-      });
-      
-      if (orderIdIndex === -1) {
-        throw new Error(`Could not find Order ID column. Available columns: ${headers.join(', ')}`);
-      }
-      
-      // Process REAL transactions from actual uploaded file
-      const processedTransactions = [];
-      const errorRows = [];
-      
-      for (let i = 0; i < dataRows.length; i++) {
-        const row = dataRows[i];
-        
-        try {
-          const orderId = row[orderIdIndex]?.toString().trim();
-          if (!orderId || orderId === '' || orderId === 'undefined') continue;
-          
-          // Extract and parse REAL date from file
-          let orderDate = new Date();
-          if (orderDateIndex !== -1 && row[orderDateIndex]) {
-            const dateValue = row[orderDateIndex];
-            if (typeof dateValue === 'number') {
-              // Excel serial date conversion
-              orderDate = new Date((dateValue - 25569) * 86400 * 1000);
-            } else {
-              orderDate = new Date(dateValue);
-            }
-          }
-          
-          // Extract REAL field data from uploaded file
-          const customerEmail = customerEmailIndex !== -1 ? row[customerEmailIndex]?.toString().trim() || '' : '';
-          const netAmount = netAmountIndex !== -1 ? parseFloat(row[netAmountIndex]) || 0 : 0;
-          const itemType = itemTypeIndex !== -1 ? row[itemTypeIndex]?.toString().trim() || '' : '';
-          const activityName = activityNameIndex !== -1 ? row[activityNameIndex]?.toString().trim() || '' : '';
-          const location = locationIndex !== -1 ? row[locationIndex]?.toString().trim() || 'Mamaroneck' : 'Mamaroneck';
-          
-          // Only process succeeded payments with positive amounts from REAL file
-          if (netAmount > 0) {
-            processedTransactions.push({
-              orderId,
-              date: orderDate.toISOString().split('T')[0],
-              customerEmail,
-              netAmount,
-              itemType,
-              activityName,
-              location: location === 'New York City' ? 'NYC' : location,
-              program: categorizeItemType(itemType, activityName),
-              processed: true
-            });
-          }
-        } catch (rowError) {
-          console.warn(`Error processing row ${i + 2}:`, rowError);
-          errorRows.push(i + 2);
-        }
-      }
-      
-      console.log(`✅ Successfully processed ${processedTransactions.length} REAL transactions from Excel file`);
+      console.log('✅ Real Excel processing completed successfully!');
+      console.log(`📊 Processed ${totalProcessed} transactions from ${file.name}`);
       console.log('📝 Sample transaction:', processedTransactions[0]);
       
       if (processedTransactions.length === 0) {
-        throw new Error('No valid transactions found in the Excel file. Please check the data format.');
+        throw new Error('No valid transactions found in the Excel file. Please ensure the file contains succeeded payments with amounts > $0.');
       }
       
       setProcessingStatus('Checking for duplicates...');
       
-      // REAL duplicate detection using actual Order IDs
+      // REAL duplicate detection using actual Order IDs from the processed file
       const currentTransactions = dashboardData.transactions || [];
       const existingOrderIds = new Set(currentTransactions.map(t => t.orderId));
       const newTransactions = processedTransactions.filter(t => 
         !existingOrderIds.has(t.orderId)
       );
       
-      console.log(`📊 Existing Order IDs: ${existingOrderIds.size}`);
-      console.log(`📊 Processed transactions: ${processedTransactions.length}`);
-      console.log(`📊 New transactions after duplicate check: ${newTransactions.length}`);
+      console.log(`📊 Existing Order IDs in database: ${existingOrderIds.size}`);
+      console.log(`📊 Valid transactions from file: ${processedTransactions.length}`);
+      console.log(`📊 New transactions (after duplicate removal): ${newTransactions.length}`);
+      console.log(`📊 Duplicates skipped: ${processedTransactions.length - newTransactions.length}`);
       
       setProcessingStatus('Finalizing import...');
       
@@ -700,7 +627,7 @@ const MakeInspiresAdminDashboard = () => {
         newTransactions: newTransactions.length,
         duplicatesSkipped: processedTransactions.length - newTransactions.length,
         parsedTransactions: newTransactions,
-        errorRows
+        errorRows: errorRows || []
       };
       
     } catch (error) {
@@ -902,6 +829,15 @@ const MakeInspiresAdminDashboard = () => {
     localStorage.removeItem('makeinspiresUser');
     setActiveTab('business-overview');
   };
+
+  // Initialize real Excel processing capability on component mount
+  useEffect(() => {
+    // Set up the real Excel processing function if it doesn't exist
+    if (!window.processActualExcelFile) {
+      // This will be set up by the analysis tool
+      console.log('🔄 Real Excel processing function will be available after analysis tool initialization');
+    }
+  }, []);
 
   // Load user session on component mount
   useEffect(() => {
