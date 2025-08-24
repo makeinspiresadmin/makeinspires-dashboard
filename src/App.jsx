@@ -585,7 +585,7 @@ const MakeInspiresAdminDashboard = () => {
     return 'Other Programs';
   };
 
-  // Real Excel processing function that actually parses your file
+  // Fixed Excel processing with proper XLSX parsing
   const processExcelWithAnalysisTool = async (file) => {
     try {
       setProcessingStatus('Reading Excel file...');
@@ -596,98 +596,125 @@ const MakeInspiresAdminDashboard = () => {
           try {
             setProcessingStatus('Parsing Excel data...');
             
-            // Use the built-in browser XLSX parsing (works without external imports)
-            const data = e.target.result;
-            const workbook = await import('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js')
-              .then(XLSX => {
-                const wb = XLSX.read(data, { type: 'binary' });
-                const wsname = wb.SheetNames[0];
-                const ws = wb.Sheets[wsname];
-                return XLSX.utils.sheet_to_json(ws, { header: 1 });
-              })
-              .catch(() => {
-                // Fallback: Try to parse as CSV-like data
-                const lines = data.split('\n');
-                return lines.map(line => line.split(','));
+            // Use proper Excel parsing
+            try {
+              // Try to load XLSX library
+              const XLSX = await import('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js');
+              
+              // Read the Excel file properly
+              const workbook = XLSX.read(e.target.result, { 
+                type: 'array',
+                cellDates: true,
+                cellNF: false,
+                cellText: false
               });
-
-            if (!workbook || workbook.length === 0) {
-              throw new Error('No data found in file');
-            }
-
-            const headers = workbook[0];
-            const dataRows = workbook.slice(1);
-            
-            console.log('Headers found:', headers);
-            console.log('Sample row:', dataRows[0]);
-
-            // Find field indices (more flexible matching)
-            const findFieldIndex = (searchTerms) => {
-              return headers.findIndex(header => {
-                if (!header || typeof header !== 'string') return false;
-                const headerLower = header.toLowerCase().trim();
-                return searchTerms.some(term => 
-                  headerLower.includes(term.toLowerCase()) || 
-                  term.toLowerCase().includes(headerLower)
-                );
-              });
-            };
-
-            // Try multiple possible column names for each field
-            const orderIdIndex = findFieldIndex(['order id', 'orderid', 'id', 'order_id', 'order number']);
-            const dateIndex = findFieldIndex(['order date', 'date', 'order_date', 'orderdate', 'created']);
-            const emailIndex = findFieldIndex(['customer email', 'email', 'customer_email', 'customeremail']);
-            const activityIndex = findFieldIndex(['activity', 'activity name', 'order activity', 'program', 'class']);
-            const locationIndex = findFieldIndex(['location', 'order location', 'venue', 'site']);
-            const amountIndex = findFieldIndex(['net amount', 'amount', 'net_amount', 'price', 'total', 'revenue']);
-            const itemTypeIndex = findFieldIndex(['item type', 'item_type', 'type', 'category', 'program type']);
-            const statusIndex = findFieldIndex(['payment status', 'status', 'payment_status', 'paid']);
-
-            console.log('All headers in file:', headers);
-            console.log('Field indices found:', {
-              orderIdIndex, dateIndex, emailIndex, activityIndex, 
-              locationIndex, amountIndex, itemTypeIndex, statusIndex
-            });
-
-            // If we can't find Order ID, show available columns
-            if (orderIdIndex === -1) {
-              const availableColumns = headers.filter(h => h && typeof h === 'string').join(', ');
-              throw new Error(`Could not find Order ID column. Available columns: ${availableColumns}`);
-            }
-
-            setProcessingStatus('Processing transactions...');
-
-            const processedTransactions = [];
-            dataRows.forEach((row, index) => {
-              try {
-                const orderId = row[orderIdIndex];
-                const paymentStatus = statusIndex >= 0 ? row[statusIndex] : 'Succeeded';
-                const netAmount = amountIndex >= 0 ? parseFloat(row[amountIndex]) || 0 : 100;
-
-                if (orderId && (!paymentStatus || paymentStatus.toLowerCase() === 'succeeded') && netAmount > 0) {
-                  processedTransactions.push({
-                    orderId: String(orderId).trim(),
-                    date: dateIndex >= 0 ? row[dateIndex] || new Date().toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-                    customerEmail: emailIndex >= 0 ? String(row[emailIndex] || '').trim().toLowerCase() : `customer${index}@example.com`,
-                    activityName: activityIndex >= 0 ? String(row[activityIndex] || '').trim() : 'Activity',
-                    location: locationIndex >= 0 ? String(row[locationIndex] || '').trim() : 'MakeInspires Mamaroneck',
-                    netAmount: netAmount,
-                    itemType: itemTypeIndex >= 0 ? String(row[itemTypeIndex] || '').trim() : 'semester',
-                    paymentStatus: 'Succeeded'
-                  });
-                }
-              } catch (rowError) {
-                console.warn(`Error processing row ${index + 2}:`, rowError);
+              
+              if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+                throw new Error('No worksheets found in Excel file');
               }
-            });
 
-            console.log(`Processed ${processedTransactions.length} transactions from ${dataRows.length} rows`);
-            
-            resolve({
-              totalRows: dataRows.length,
-              processedTransactions,
-              errorRows: []
-            });
+              const sheetName = workbook.SheetNames[0];
+              const worksheet = workbook.Sheets[sheetName];
+              
+              // Convert to JSON with headers
+              const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+                header: 1,
+                defval: '',
+                blankrows: false,
+                raw: false
+              });
+
+              if (!jsonData || jsonData.length === 0) {
+                throw new Error('No data found in Excel worksheet');
+              }
+
+              const headers = jsonData[0] || [];
+              const dataRows = jsonData.slice(1);
+              
+              console.log('Successfully parsed Excel file');
+              console.log('Headers found:', headers);
+              console.log('Number of data rows:', dataRows.length);
+              console.log('Sample row:', dataRows[0]);
+
+              // Find field indices (more flexible matching)
+              const findFieldIndex = (searchTerms) => {
+                return headers.findIndex(header => {
+                  if (!header || typeof header !== 'string') return false;
+                  const headerLower = header.toLowerCase().trim();
+                  return searchTerms.some(term => 
+                    headerLower.includes(term.toLowerCase()) || 
+                    term.toLowerCase().includes(headerLower)
+                  );
+                });
+              };
+
+              // Try multiple possible column names for each field
+              const orderIdIndex = findFieldIndex(['order id', 'orderid', 'id', 'order_id', 'order number']);
+              const dateIndex = findFieldIndex(['order date', 'date', 'order_date', 'orderdate', 'created']);
+              const emailIndex = findFieldIndex(['customer email', 'email', 'customer_email', 'customeremail']);
+              const activityIndex = findFieldIndex(['activity', 'activity name', 'order activity', 'program', 'class']);
+              const locationIndex = findFieldIndex(['location', 'order location', 'venue', 'site']);
+              const amountIndex = findFieldIndex(['net amount', 'amount', 'net_amount', 'price', 'total', 'revenue']);
+              const itemTypeIndex = findFieldIndex(['item type', 'item_type', 'type', 'category', 'program type']);
+              const statusIndex = findFieldIndex(['payment status', 'status', 'payment_status', 'paid']);
+
+              console.log('Field indices found:', {
+                orderIdIndex, dateIndex, emailIndex, activityIndex, 
+                locationIndex, amountIndex, itemTypeIndex, statusIndex
+              });
+
+              // If we can't find Order ID, show available columns
+              if (orderIdIndex === -1) {
+                const availableColumns = headers.filter(h => h && typeof h === 'string' && h.trim().length > 0).join(', ');
+                throw new Error(`Could not find Order ID column. Available columns: ${availableColumns}`);
+              }
+
+              setProcessingStatus('Processing transactions...');
+
+              const processedTransactions = [];
+              dataRows.forEach((row, index) => {
+                try {
+                  const orderId = row[orderIdIndex];
+                  if (!orderId) return; // Skip rows without Order ID
+
+                  const paymentStatus = statusIndex >= 0 ? row[statusIndex] : 'Succeeded';
+                  const netAmountRaw = amountIndex >= 0 ? row[amountIndex] : '100';
+                  const netAmount = parseFloat(String(netAmountRaw).replace(/[^0-9.-]/g, '')) || 0;
+
+                  // Only process valid transactions
+                  if (orderId && (!paymentStatus || paymentStatus.toLowerCase().includes('succeed')) && netAmount > 0) {
+                    processedTransactions.push({
+                      orderId: String(orderId).trim(),
+                      date: dateIndex >= 0 ? row[dateIndex] || new Date().toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                      customerEmail: emailIndex >= 0 ? String(row[emailIndex] || '').trim().toLowerCase() : `customer${index}@example.com`,
+                      activityName: activityIndex >= 0 ? String(row[activityIndex] || '').trim() : 'Activity',
+                      location: locationIndex >= 0 ? String(row[locationIndex] || '').trim() : 'MakeInspires Mamaroneck',
+                      netAmount: netAmount,
+                      itemType: itemTypeIndex >= 0 ? String(row[itemTypeIndex] || '').trim() : 'semester',
+                      paymentStatus: 'Succeeded'
+                    });
+                  }
+                } catch (rowError) {
+                  console.warn(`Error processing row ${index + 2}:`, rowError);
+                }
+              });
+
+              console.log(`Successfully processed ${processedTransactions.length} transactions from ${dataRows.length} rows`);
+              
+              if (processedTransactions.length === 0) {
+                throw new Error('No valid transactions found in the Excel file. Please check the data format.');
+              }
+              
+              resolve({
+                totalRows: dataRows.length,
+                processedTransactions,
+                errorRows: []
+              });
+
+            } catch (xlsxError) {
+              console.error('XLSX parsing failed:', xlsxError);
+              throw new Error(`Failed to parse Excel file: ${xlsxError.message}`);
+            }
             
           } catch (error) {
             reject(error);
@@ -695,12 +722,12 @@ const MakeInspiresAdminDashboard = () => {
         };
         
         reader.onerror = () => reject(new Error('Failed to read file'));
-        reader.readAsBinaryString(file);
+        reader.readAsArrayBuffer(file); // Use ArrayBuffer instead of Binary
       });
       
       setProcessingStatus('Checking for duplicates...');
       
-      // Enhanced duplicate detection - properly check current dashboard state
+      // Enhanced duplicate detection
       const currentTransactions = dashboardData.transactions || [];
       const existingOrderIds = new Set(currentTransactions.map(t => t.orderId));
       const newTransactions = analysisResult.processedTransactions.filter(t => 
