@@ -621,29 +621,38 @@ const MakeInspiresAdminDashboard = () => {
             console.log('Headers found:', headers);
             console.log('Sample row:', dataRows[0]);
 
-            // Find field indices (flexible matching)
-            const findFieldIndex = (fieldName) => {
-              return headers.findIndex(header => 
-                header && header.toLowerCase().includes(fieldName.toLowerCase())
-              );
+            // Find field indices (more flexible matching)
+            const findFieldIndex = (searchTerms) => {
+              return headers.findIndex(header => {
+                if (!header || typeof header !== 'string') return false;
+                const headerLower = header.toLowerCase().trim();
+                return searchTerms.some(term => 
+                  headerLower.includes(term.toLowerCase()) || 
+                  term.toLowerCase().includes(headerLower)
+                );
+              });
             };
 
-            const orderIdIndex = findFieldIndex('order id');
-            const dateIndex = findFieldIndex('order date');
-            const emailIndex = findFieldIndex('customer email');
-            const activityIndex = findFieldIndex('activity');
-            const locationIndex = findFieldIndex('location');
-            const amountIndex = findFieldIndex('net amount');
-            const itemTypeIndex = findFieldIndex('item type');
-            const statusIndex = findFieldIndex('payment status');
+            // Try multiple possible column names for each field
+            const orderIdIndex = findFieldIndex(['order id', 'orderid', 'id', 'order_id', 'order number']);
+            const dateIndex = findFieldIndex(['order date', 'date', 'order_date', 'orderdate', 'created']);
+            const emailIndex = findFieldIndex(['customer email', 'email', 'customer_email', 'customeremail']);
+            const activityIndex = findFieldIndex(['activity', 'activity name', 'order activity', 'program', 'class']);
+            const locationIndex = findFieldIndex(['location', 'order location', 'venue', 'site']);
+            const amountIndex = findFieldIndex(['net amount', 'amount', 'net_amount', 'price', 'total', 'revenue']);
+            const itemTypeIndex = findFieldIndex(['item type', 'item_type', 'type', 'category', 'program type']);
+            const statusIndex = findFieldIndex(['payment status', 'status', 'payment_status', 'paid']);
 
-            console.log('Field indices:', {
+            console.log('All headers in file:', headers);
+            console.log('Field indices found:', {
               orderIdIndex, dateIndex, emailIndex, activityIndex, 
               locationIndex, amountIndex, itemTypeIndex, statusIndex
             });
 
+            // If we can't find Order ID, show available columns
             if (orderIdIndex === -1) {
-              throw new Error('Could not find Order ID column in Excel file');
+              const availableColumns = headers.filter(h => h && typeof h === 'string').join(', ');
+              throw new Error(`Could not find Order ID column. Available columns: ${availableColumns}`);
             }
 
             setProcessingStatus('Processing transactions...');
