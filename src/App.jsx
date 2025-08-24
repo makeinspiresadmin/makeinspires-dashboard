@@ -51,7 +51,7 @@ Status: ✅ PRODUCTION READY - All Critical Issues Fixed
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, errorInfo: null };
   }
   
   static getDerivedStateFromError(error) {
@@ -60,6 +60,7 @@ class ErrorBoundary extends React.Component {
   
   componentDidCatch(error, errorInfo) {
     console.error('Dashboard error:', error, errorInfo);
+    this.setState({ errorInfo });
   }
   
   render() {
@@ -80,6 +81,23 @@ class ErrorBoundary extends React.Component {
             >
               Refresh Page
             </button>
+            {this.state.error && (
+              <details className="mt-4">
+                <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700">
+                  Show error details
+                </summary>
+                <div className="mt-2 p-3 bg-gray-100 rounded text-xs">
+                  <p className="font-semibold">Error:</p>
+                  <pre className="whitespace-pre-wrap">{this.state.error.toString()}</pre>
+                  {this.state.error.stack && (
+                    <>
+                      <p className="font-semibold mt-2">Stack:</p>
+                      <pre className="whitespace-pre-wrap text-xs">{this.state.error.stack}</pre>
+                    </>
+                  )}
+                </div>
+              </details>
+            )}
           </div>
         </div>
       );
@@ -146,8 +164,13 @@ const MakeInspiresAdminDashboard = () => {
   
   // Dashboard data state - loaded from localStorage or empty
   const [dashboardData, setDashboardData] = useState(() => {
-    const saved = localStorage.getItem('makeinspiresData');
-    return saved ? JSON.parse(saved) : getInitialDashboardData();
+    try {
+      const saved = localStorage.getItem('makeinspiresData');
+      return saved ? JSON.parse(saved) : getInitialDashboardData();
+    } catch (error) {
+      console.error('Error loading saved data:', error);
+      return getInitialDashboardData();
+    }
   });
   
   // Demo users for authentication
@@ -159,16 +182,24 @@ const MakeInspiresAdminDashboard = () => {
   
   // Load user from localStorage on mount
   useEffect(() => {
-    const savedUser = localStorage.getItem('makeinspiresUser');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
+    try {
+      const savedUser = localStorage.getItem('makeinspiresUser');
+      if (savedUser) {
+        setUser(JSON.parse(savedUser));
+      }
+    } catch (error) {
+      console.error('Error loading user:', error);
     }
   }, []);
   
   // Save dashboard data to localStorage whenever it changes
   useEffect(() => {
-    if (dashboardData.transactions.length > 0) {
-      localStorage.setItem('makeinspiresData', JSON.stringify(dashboardData));
+    try {
+      if (dashboardData.transactions && dashboardData.transactions.length > 0) {
+        localStorage.setItem('makeinspiresData', JSON.stringify(dashboardData));
+      }
+    } catch (error) {
+      console.error('Error saving data:', error);
     }
   }, [dashboardData]);
   
@@ -277,6 +308,7 @@ const MakeInspiresAdminDashboard = () => {
   };
   
   const normalizeLocation = (location) => {
+    if (!location) return 'Mamaroneck';
     const loc = location.toLowerCase();
     if (loc.includes('nyc')) return 'NYC';
     if (loc.includes('chappaqua')) return 'Chappaqua';
@@ -386,20 +418,22 @@ const MakeInspiresAdminDashboard = () => {
     if (!transactions || transactions.length === 0) return;
     
     // Calculate overview metrics
-    const totalRevenue = transactions.reduce((sum, t) => sum + t.netAmount, 0);
+    const totalRevenue = transactions.reduce((sum, t) => sum + (t.netAmount || 0), 0);
     const uniqueEmails = new Set(transactions.map(t => t.customerEmail));
     const uniqueCustomers = uniqueEmails.size;
-    const avgTransactionValue = totalRevenue / transactions.length;
+    const avgTransactionValue = transactions.length > 0 ? totalRevenue / transactions.length : 0;
     
     // Calculate customer metrics
     const customerTransactionCounts = {};
     transactions.forEach(t => {
-      customerTransactionCounts[t.customerEmail] = 
-        (customerTransactionCounts[t.customerEmail] || 0) + 1;
+      if (t.customerEmail) {
+        customerTransactionCounts[t.customerEmail] = 
+          (customerTransactionCounts[t.customerEmail] || 0) + 1;
+      }
     });
     const repeatCustomers = Object.values(customerTransactionCounts)
       .filter(count => count > 1).length;
-    const repeatCustomerRate = (repeatCustomers / uniqueCustomers) * 100;
+    const repeatCustomerRate = uniqueCustomers > 0 ? (repeatCustomers / uniqueCustomers) * 100 : 0;
     
     // Calculate program metrics
     const programMetrics = {};
@@ -407,7 +441,7 @@ const MakeInspiresAdminDashboard = () => {
       if (!programMetrics[t.program]) {
         programMetrics[t.program] = { revenue: 0, transactions: 0 };
       }
-      programMetrics[t.program].revenue += t.netAmount;
+      programMetrics[t.program].revenue += (t.netAmount || 0);
       programMetrics[t.program].transactions += 1;
     });
     
@@ -417,7 +451,7 @@ const MakeInspiresAdminDashboard = () => {
       if (!locationMetrics[t.location]) {
         locationMetrics[t.location] = { revenue: 0, transactions: 0 };
       }
-      locationMetrics[t.location].revenue += t.netAmount;
+      locationMetrics[t.location].revenue += (t.netAmount || 0);
       locationMetrics[t.location].transactions += 1;
     });
     
@@ -430,8 +464,8 @@ const MakeInspiresAdminDashboard = () => {
         totalTransactions: transactions.length,
         avgTransactionValue: Math.round(avgTransactionValue),
         repeatCustomerRate: Math.round(repeatCustomerRate * 10) / 10,
-        avgRevenuePerFamily: Math.round(totalRevenue / uniqueCustomers),
-        customerLifetimeValue: Math.round(totalRevenue / uniqueCustomers * 1.8)
+        avgRevenuePerFamily: uniqueCustomers > 0 ? Math.round(totalRevenue / uniqueCustomers) : 0,
+        customerLifetimeValue: uniqueCustomers > 0 ? Math.round(totalRevenue / uniqueCustomers * 1.8) : 0
       },
       programTypes: prev.programTypes.map(program => {
         const metrics = programMetrics[program.name] || { revenue: 0, transactions: 0 };
@@ -439,7 +473,7 @@ const MakeInspiresAdminDashboard = () => {
           ...program,
           value: Math.round(metrics.revenue),
           transactions: metrics.transactions,
-          percentage: Math.round((metrics.revenue / totalRevenue) * 1000) / 10
+          percentage: totalRevenue > 0 ? Math.round((metrics.revenue / totalRevenue) * 1000) / 10 : 0
         };
       }),
       locations: prev.locations.map(location => {
@@ -643,14 +677,15 @@ const MakeInspiresAdminDashboard = () => {
       };
     }
     
-    const totalRevenue = filtered.reduce((sum, t) => sum + t.netAmount, 0);
+    const totalRevenue = filtered.reduce((sum, t) => sum + (t.netAmount || 0), 0);
     const uniqueCustomers = new Set(filtered.map(t => t.customerEmail)).size;
+    const avgTransaction = filtered.length > 0 ? Math.round(totalRevenue / filtered.length) : 0;
     
     return {
       totalRevenue: Math.round(totalRevenue),
       totalTransactions: filtered.length,
       uniqueCustomers,
-      avgTransactionValue: Math.round(totalRevenue / filtered.length)
+      avgTransactionValue: avgTransaction
     };
   }, [getFilteredData]);
   
