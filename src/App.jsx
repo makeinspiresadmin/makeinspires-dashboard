@@ -5,11 +5,12 @@ import { Users, DollarSign, Calendar, MapPin, TrendingUp, RefreshCw, Award, Targ
 /*
 === MAKEINSPIRES BUSINESS DASHBOARD v45.1 - DEVELOPMENT VERSION ===
 Last Updated: August 2025
-Status: 🔧 DEVELOPMENT VERSION - Bug Fixes Applied
+Status: 🔧 DEVELOPMENT VERSION - Bug Fixes Applied + Logo Integration
 
-🎯 VERSION 45.1 CHANGES (BUG FIXES ONLY):
+🎯 VERSION 45.1 CHANGES (BUG FIXES + LOGO INTEGRATION):
 - FIXED: CSV column detection logic - now correctly finds all Sawyer export columns
 - FIXED: Removed all "Production Ready" false claims from comments and UI
+- ADDED: MakeInspires logo integration in login screen and main dashboard header
 - PRESERVED: All 7 tabs and existing features
 - PRESERVED: All authentication functionality  
 - PRESERVED: All filtering systems
@@ -45,6 +46,35 @@ Status: 🔧 DEVELOPMENT VERSION - Bug Fixes Applied
 - NEVER remove filtering functionality
 - NEVER hardcode transaction data
 */
+
+// MakeInspires Logo Component - With fallback for preview
+const MakeInspiresLogo = ({ size = 40 }) => {
+  const [imageError, setImageError] = useState(false);
+  
+  if (imageError) {
+    // Fallback SVG version for preview environment
+    return (
+      <div 
+        className="flex-shrink-0 rounded-full bg-gray-800 flex items-center justify-center"
+        style={{ width: size, height: size }}
+      >
+        <div className="text-white font-bold" style={{ fontSize: size * 0.3 }}>MI</div>
+      </div>
+    );
+  }
+  
+  return (
+    <img 
+      src="https://static.wixstatic.com/media/107b16_5f29910420a944bc8577820a2e89eb63~mv2.jpg" 
+      alt="MakeInspires Logo" 
+      width={size} 
+      height={size}
+      className="flex-shrink-0 rounded-full"
+      style={{ width: size, height: size, objectFit: 'cover' }}
+      onError={() => setImageError(true)}
+    />
+  );
+};
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component {
@@ -625,7 +655,9 @@ const MakeInspiresAdminDashboard = () => {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-8">
           <div className="text-center mb-8">
-            <Building className="mx-auto text-blue-600 mb-4" size={48} />
+            <div className="flex justify-center mb-4">
+              <MakeInspiresLogo size={64} />
+            </div>
             <h1 className="text-2xl font-bold text-gray-900">MakeInspires Dashboard</h1>
             <p className="text-gray-600 mt-2">Development Version v45.1</p>
           </div>
@@ -700,7 +732,7 @@ const MakeInspiresAdminDashboard = () => {
     <header className="bg-white shadow-sm border-b border-gray-200 px-4 sm:px-6 py-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
         <div className="flex items-center space-x-3">
-          <Building className="text-blue-600" size={32} />
+          <MakeInspiresLogo size={40} />
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900">MakeInspires Dashboard</h1>
             <p className="text-sm text-gray-600">Development Version v45.1</p>
