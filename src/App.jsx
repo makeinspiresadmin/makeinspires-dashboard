@@ -998,7 +998,7 @@ const MakeInspiresAdminDashboard = () => {
               {/* Program Distribution */}
               <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="text-lg font-semibold mb-4">Program Distribution</h3>
-                {dashboardData.programTypes.some(p => p.value > 0) ? (
+                {dashboardData.programTypes && Array.isArray(dashboardData.programTypes) && dashboardData.programTypes.some(p => p.value > 0) ? (
                   <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
                       <Pie
@@ -1015,7 +1015,7 @@ const MakeInspiresAdminDashboard = () => {
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
+                      <Tooltip formatter={(value) => `${value.toLocaleString()}`} />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
@@ -1028,13 +1028,13 @@ const MakeInspiresAdminDashboard = () => {
               {/* Location Performance */}
               <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="text-lg font-semibold mb-4">Location Performance</h3>
-                {dashboardData.locations.some(l => l.value > 0) ? (
+                {dashboardData.locations && Array.isArray(dashboardData.locations) && dashboardData.locations.some(l => l.value > 0) ? (
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={dashboardData.locations}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" />
                       <YAxis />
-                      <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
+                      <Tooltip formatter={(value) => `${value.toLocaleString()}`} />
                       <Bar dataKey="value" fill="#3B82F6" />
                     </BarChart>
                   </ResponsiveContainer>
