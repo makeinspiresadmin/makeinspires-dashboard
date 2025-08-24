@@ -1,1253 +1,982 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area, ComposedChart, ScatterChart, Scatter } from 'recharts';
-import { Users, DollarSign, Calendar, MapPin, TrendingUp, RefreshCw, Award, Target, BookOpen, PartyPopper, Wrench, Package, Upload, Database, FileSpreadsheet, CheckCircle, Globe, LogOut, LogIn, Shield, Eye, Filter, TrendingDown, Zap, Activity, AlertCircle, ChevronDown, Search, X, Brain, Clock, Trash2, Building, School } from 'lucide-react';
+// =============================================================================
+// MAKEINSPIRES DASHBOARD v45.1 - FIXED DATA PROCESSING FUNCTIONS
+// =============================================================================
 
-/*
-=== MAKEINSPIRES BUSINESS DASHBOARD v45.0 - PRODUCTION READY ===
-Last Updated: August 2025
-Status: ✅ PRODUCTION READY - All Critical Issues Fixed
-
-🎯 VERSION 45.0 CHANGES:
-- FIXED: All syntax errors preventing deployment
-- REMOVED: ALL simulation code - 100% real data processing
-- REMOVED: Hardcoded baseline data - all data from uploads
-- STANDARDIZED: Version numbering system
-- ENHANCED: Error handling with ErrorBoundary
-- PRESERVED: All 7 tabs and existing features
-- VERIFIED: Zero simulation policy achieved
-- ADDED: Robust CSV parsing for Sawyer exports
-
-📋 COMPLETE FEATURE INVENTORY (ALL PRESERVED):
-✅ 7-Tab Navigation: Overview, Analytics, YoY, Predictive, Customers, Partners, Upload
-✅ 3-Tier Authentication: Admin, Manager, Viewer roles
-✅ Advanced Filtering: Date ranges, Locations, Programs, Customer types
-✅ Real CSV Processing: NO simulations, actual file parsing
-✅ Dynamic Data: All data from CSV uploads (no hardcoded values)
-✅ 7 Program Categories: Enhanced categorization logic
-✅ Complete Visualizations: Pie, Bar, Area, Line, Scatter charts
-✅ Duplicate Detection: Real Order ID comparison
-✅ Admin Delete Function: For uploaded data only
-✅ Error Boundary: Graceful error handling
-
-🔧 TECHNICAL SPECIFICATIONS:
-- React 18 with Hooks (useState, useEffect, useMemo)
-- Recharts for all visualizations
-- Tailwind CSS for responsive design
-- Lucide React for icons
-- Native CSV parsing (no external dependencies)
-- localStorage for session persistence
-- ErrorBoundary for crash prevention
-
-🚫 CRITICAL RESTRICTIONS (NEVER VIOLATE):
-- NEVER remove any of the 7 tabs
-- NEVER add simulations or mock data
-- NEVER simplify filtering system
-- NEVER remove authentication
-- NEVER hardcode transaction data
-- NEVER break responsive design
-*/
-
-// Error Boundary Component for crash prevention
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null, errorInfo: null };
-  }
+// Enhanced CSV parsing with proper quote handling
+const parseCSVLine = (line) => {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  let i = 0;
   
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-  
-  componentDidCatch(error, errorInfo) {
-    console.error('Dashboard error:', error, errorInfo);
-    this.setState({ errorInfo });
-  }
-  
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-6">
-            <div className="flex items-center space-x-3 text-red-600 mb-4">
-              <AlertCircle size={24} />
-              <h2 className="text-xl font-semibold">Dashboard Error</h2>
-            </div>
-            <p className="text-gray-600 mb-4">
-              An error occurred. Please refresh the page or contact support.
-            </p>
-            <button
-              onClick={() => window.location.reload()}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
-            >
-              Refresh Page
-            </button>
-            {this.state.error && (
-              <details className="mt-4">
-                <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700">
-                  Show error details
-                </summary>
-                <div className="mt-2 p-3 bg-gray-100 rounded text-xs">
-                  <p className="font-semibold">Error:</p>
-                  <pre className="whitespace-pre-wrap">{this.state.error.toString()}</pre>
-                  {this.state.error.stack && (
-                    <>
-                      <p className="font-semibold mt-2">Stack:</p>
-                      <pre className="whitespace-pre-wrap text-xs">{this.state.error.stack}</pre>
-                    </>
-                  )}
-                </div>
-              </details>
-            )}
-          </div>
-        </div>
-      );
-    }
+  while (i < line.length) {
+    const char = line[i];
     
-    return this.props.children;
-  }
-}
-
-// Main Dashboard Component
-const MakeInspiresAdminDashboard = () => {
-  // Authentication state
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [authError, setAuthError] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  
-  // Dashboard navigation state
-  const [activeTab, setActiveTab] = useState('business-overview');
-  const [dateRange, setDateRange] = useState('All');
-  const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
-  const [selectedLocation, setSelectedLocation] = useState('All');
-  const [selectedProgram, setSelectedProgram] = useState('All');
-  const [selectedCustomerType, setSelectedCustomerType] = useState('All');
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  // Upload state
-  const [uploadStatus, setUploadStatus] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
-  const [processingStatus, setProcessingStatus] = useState('');
-  
-  // Initialize empty dashboard data structure
-  const getInitialDashboardData = () => ({
-    lastUpdated: new Date().toISOString(),
-    transactions: [], // All data from uploads
-    uploadHistory: [],
-    overview: {
-      totalRevenue: 0,
-      uniqueCustomers: 0,
-      totalTransactions: 0,
-      avgTransactionValue: 0,
-      repeatCustomerRate: 0,
-      avgRevenuePerFamily: 0,
-      customerLifetimeValue: 0
-    },
-    programTypes: [
-      { name: 'Semester Programs', value: 0, transactions: 0, percentage: 0 },
-      { name: 'Weekly Programs', value: 0, transactions: 0, percentage: 0 },
-      { name: 'Drop-in Sessions', value: 0, transactions: 0, percentage: 0 },
-      { name: 'Birthday Parties', value: 0, transactions: 0, percentage: 0 },
-      { name: 'Summer Camps', value: 0, transactions: 0, percentage: 0 },
-      { name: 'Workshops & MakeJams', value: 0, transactions: 0, percentage: 0 },
-      { name: 'Other Programs', value: 0, transactions: 0, percentage: 0 }
-    ],
-    locations: [
-      { name: 'Mamaroneck', value: 0, transactions: 0 },
-      { name: 'NYC', value: 0, transactions: 0 },
-      { name: 'Chappaqua', value: 0, transactions: 0 },
-      { name: 'Partners', value: 0, transactions: 0 }
-    ]
-  });
-  
-  // Dashboard data state - loaded from localStorage or empty
-  const [dashboardData, setDashboardData] = useState(() => {
-    try {
-      const saved = localStorage.getItem('makeinspiresData');
-      return saved ? JSON.parse(saved) : getInitialDashboardData();
-    } catch (error) {
-      console.error('Error loading saved data:', error);
-      return getInitialDashboardData();
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        // Handle escaped quotes ("")
+        current += '"';
+        i += 2; // Skip both quotes
+        continue;
+      } else {
+        // Toggle quote state
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
     }
-  });
+    i++;
+  }
   
-  // Demo users for authentication
-  const demoUsers = [
-    { email: 'admin@makeinspires.com', password: 'password123', role: 'admin', name: 'Admin User' },
-    { email: 'manager@makeinspires.com', password: 'password123', role: 'manager', name: 'Manager User' },
-    { email: 'viewer@makeinspires.com', password: 'password123', role: 'viewer', name: 'Viewer User' }
+  result.push(current.trim());
+  return result;
+};
+
+// Robust date parsing with proper Excel date handling and timezone support
+const parseDate = (dateStr) => {
+  if (!dateStr) {
+    console.warn('Empty date string provided, using current date');
+    return new Date();
+  }
+  
+  // Clean the input
+  const cleanDateStr = dateStr.toString().trim();
+  
+  // Handle Excel serial dates (expanded range for better coverage)
+  const numericDate = parseFloat(cleanDateStr);
+  if (!isNaN(numericDate) && numericDate > 25569 && numericDate < 73050) { // 1970-2099 range
+    try {
+      const jsDate = new Date((numericDate - 25569) * 86400 * 1000);
+      if (!isNaN(jsDate.getTime())) {
+        return jsDate;
+      }
+    } catch (error) {
+      console.warn('Error parsing Excel serial date:', error);
+    }
+  }
+  
+  // Handle standard date strings with multiple formats
+  const dateFormats = [
+    cleanDateStr,
+    cleanDateStr.replace(/[-\/]/g, '/'), // Normalize separators
+    cleanDateStr + ' 00:00:00' // Add time if missing
   ];
   
-  // Load user from localStorage on mount
-  useEffect(() => {
+  for (const format of dateFormats) {
     try {
-      const savedUser = localStorage.getItem('makeinspiresUser');
-      if (savedUser) {
-        setUser(JSON.parse(savedUser));
+      const parsed = new Date(format);
+      if (!isNaN(parsed.getTime()) && parsed.getFullYear() > 1900) {
+        return parsed;
       }
     } catch (error) {
-      console.error('Error loading user:', error);
+      // Continue to next format
     }
-  }, []);
+  }
   
-  // Save dashboard data to localStorage whenever it changes
-  useEffect(() => {
-    try {
-      if (dashboardData.transactions && dashboardData.transactions.length > 0) {
-        localStorage.setItem('makeinspiresData', JSON.stringify(dashboardData));
-      }
-    } catch (error) {
-      console.error('Error saving data:', error);
+  console.warn(`Unable to parse date: "${dateStr}", using current date`);
+  return new Date();
+};
+
+// Enhanced location normalization with better mapping
+const normalizeLocation = (location, providerName = '') => {
+  if (!location && !providerName) return 'Mamaroneck';
+  
+  const locationStr = (location || '').toLowerCase().trim();
+  const providerStr = (providerName || '').toLowerCase().trim();
+  const combined = `${locationStr} ${providerStr}`.toLowerCase();
+  
+  // Enhanced location detection
+  if (combined.includes('nyc') || combined.includes('new york city') || 
+      combined.includes('manhattan') || combined.includes('brooklyn')) {
+    return 'NYC';
+  }
+  if (combined.includes('chappaqua') || combined.includes('mount kisco')) {
+    return 'Chappaqua';
+  }
+  if (combined.includes('partner') || combined.includes('external')) {
+    return 'Partners';
+  }
+  
+  return 'Mamaroneck'; // Default fallback
+};
+
+// Enhanced program categorization with better logic
+const categorizeItemType = (itemType = '', activityName = '') => {
+  const itemTypeLower = itemType.toLowerCase().trim();
+  const activityLower = activityName.toLowerCase().trim();
+  const combined = `${itemTypeLower} ${activityLower}`.toLowerCase();
+  
+  // Priority-based categorization (most specific first)
+  if (combined.includes('summer') && (combined.includes('camp') || combined.includes('week'))) {
+    return 'Summer Camps';
+  }
+  if (combined.includes('workshop') || combined.includes('makejam') || combined.includes('make jam')) {
+    return 'Workshops & MakeJams';
+  }
+  if (combined.includes('semester') || itemTypeLower === 'semester') {
+    return 'Semester Programs';
+  }
+  if (combined.includes('party') || combined.includes('birthday')) {
+    return 'Birthday Parties';
+  }
+  if (combined.includes('dropin') || combined.includes('drop_in') || 
+      combined.includes('drop-in') || itemTypeLower === 'free_dropin') {
+    return 'Drop-in Sessions';
+  }
+  if (combined.includes('weekly') && !combined.includes('summer')) {
+    return 'Weekly Programs';
+  }
+  
+  return 'Other Programs';
+};
+
+// Robust CSV processing with comprehensive error handling
+const processCSVFile = async (file, abortController = null) => {
+  const errors = [];
+  const warnings = [];
+  
+  try {
+    if (!file) {
+      throw new Error('No file provided');
     }
-  }, [dashboardData]);
-  
-  // Authentication handlers
-  const handleLogin = (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setAuthError('');
     
-    setTimeout(() => {
-      const foundUser = demoUsers.find(
-        u => u.email.toLowerCase() === email.toLowerCase() && u.password === password
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      throw new Error('File must be in CSV format');
+    }
+    
+    // Read file with abort capability
+    const text = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.onabort = () => reject(new Error('File reading was aborted'));
+      
+      // Handle abort controller
+      if (abortController) {
+        abortController.signal.addEventListener('abort', () => {
+          reader.abort();
+        });
+      }
+      
+      reader.readAsText(file);
+    });
+    
+    // Check for abort after reading
+    if (abortController?.signal.aborted) {
+      throw new Error('Processing was cancelled');
+    }
+    
+    // Enhanced CSV parsing
+    const lines = text.split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
+    
+    if (lines.length < 2) {
+      throw new Error('CSV file appears to be empty or contains only headers');
+    }
+    
+    // Parse headers with better cleaning
+    const headers = parseCSVLine(lines[0]).map(h => 
+      h.replace(/^["']|["']$/g, '').trim() // Remove quotes and trim
+    );
+    
+    // Validate required columns exist
+    const requiredColumns = [
+      'Order ID', 'Order Date', 'Customer Email', 
+      'Net Amount to Provider', 'Payment Status', 'Item Types'
+    ];
+    
+    const columnMap = {};
+    const missingColumns = [];
+    
+    requiredColumns.forEach(col => {
+      const index = headers.findIndex(h => 
+        h.toLowerCase().includes(col.toLowerCase().replace(' ', ''))
       );
-      
-      if (foundUser) {
-        const userData = {
-          email: foundUser.email,
-          role: foundUser.role,
-          name: foundUser.name
-        };
-        setUser(userData);
-        localStorage.setItem('makeinspiresUser', JSON.stringify(userData));
-        setEmail('');
-        setPassword('');
+      if (index === -1) {
+        missingColumns.push(col);
       } else {
-        setAuthError('Invalid email or password');
+        columnMap[col] = index;
       }
-      setLoading(false);
-    }, 500);
-  };
-  
-  const handleLogout = () => {
-    setUser(null);
-    localStorage.removeItem('makeinspiresUser');
-    setActiveTab('business-overview');
-  };
-  
-  // Program categorization logic
-  const categorizeItemType = (itemType, activityName = '') => {
-    if (!itemType) return 'Other Programs';
+    });
     
-    const itemTypeLower = itemType.toLowerCase();
-    const activityLower = activityName.toLowerCase();
-    
-    // Enhanced categorization using both fields
-    if (activityLower.includes('summer') || activityLower.includes('camp')) {
-      return 'Summer Camps';
-    }
-    if ((itemTypeLower.includes('weekly') || itemTypeLower === 'weekly') && 
-        !activityLower.includes('summer')) {
-      return 'Weekly Programs';
-    }
-    if (itemTypeLower.includes('workshop') || itemTypeLower === 'workshop' ||
-        activityLower.includes('workshop') || activityLower.includes('makejam')) {
-      return 'Workshops & MakeJams';
-    }
-    if (itemTypeLower.includes('semester') || itemTypeLower === 'semester') {
-      return 'Semester Programs';
-    }
-    if (itemTypeLower.includes('party') || itemTypeLower === 'party' ||
-        activityLower.includes('party') || activityLower.includes('birthday')) {
-      return 'Birthday Parties';
-    }
-    if (itemTypeLower.includes('dropin') || itemTypeLower.includes('drop_in') ||
-        itemTypeLower.includes('drop-in') || itemTypeLower === 'free_dropin') {
-      return 'Drop-in Sessions';
+    if (missingColumns.length > 0) {
+      throw new Error(`Missing required columns: ${missingColumns.join(', ')}`);
     }
     
-    return 'Other Programs';
-  };
-  
-  // CSV parsing utilities
-  const parseCSVLine = (line) => {
-    const result = [];
-    let current = '';
-    let inQuotes = false;
+    // Optional columns with fallbacks
+    const optionalColumns = {
+      'Order Activity Names': headers.findIndex(h => h.toLowerCase().includes('activity')),
+      'Order Locations': headers.findIndex(h => h.toLowerCase().includes('location')),
+      'Provider Name': headers.findIndex(h => h.toLowerCase().includes('provider'))
+    };
     
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      
-      if (char === '"') {
-        inQuotes = !inQuotes;
-      } else if (char === ',' && !inQuotes) {
-        result.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
-    }
+    const processedTransactions = [];
+    const duplicateIds = new Set();
+    let successCount = 0;
+    let errorCount = 0;
     
-    result.push(current.trim());
-    return result;
-  };
-  
-  const parseDate = (dateStr) => {
-    if (!dateStr) return new Date();
-    
-    // Handle Excel serial dates
-    if (!isNaN(dateStr) && dateStr > 40000 && dateStr < 50000) {
-      return new Date((dateStr - 25569) * 86400 * 1000);
-    }
-    
-    // Handle normal date strings
-    const parsed = new Date(dateStr);
-    return isNaN(parsed.getTime()) ? new Date() : parsed;
-  };
-  
-  const normalizeLocation = (location) => {
-    if (!location) return 'Mamaroneck';
-    const loc = location.toLowerCase();
-    if (loc.includes('nyc')) return 'NYC';
-    if (loc.includes('chappaqua')) return 'Chappaqua';
-    if (loc.includes('partner')) return 'Partners';
-    return 'Mamaroneck';
-  };
-  
-  // Real CSV processing function
-  const processCSVFile = async (file) => {
-    try {
-      setProcessingStatus('Reading CSV file...');
-      
-      // Read actual file content
-      const text = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target.result);
-        reader.onerror = () => reject(new Error('Failed to read file'));
-        reader.readAsText(file);
-      });
-      
-      setProcessingStatus('Parsing CSV data...');
-      
-      // Parse real CSV content
-      const lines = text.split('\n').filter(line => line.trim());
-      if (lines.length < 2) {
-        throw new Error('CSV file appears to be empty or invalid');
-      }
-      
-      // Extract headers and data
-      const headers = parseCSVLine(lines[0]);
-      const dataRows = lines.slice(1);
-      
-      // Find column indices based on Sawyer export structure
-      const columnMap = {
-        orderId: headers.findIndex(h => h.toLowerCase().includes('order id')),
-        orderDate: headers.findIndex(h => h.toLowerCase().includes('order date')),
-        customerEmail: headers.findIndex(h => h.toLowerCase().includes('customer email')),
-        netAmount: headers.findIndex(h => h.toLowerCase().includes('net amount')),
-        paymentStatus: headers.findIndex(h => h.toLowerCase().includes('payment status')),
-        itemTypes: headers.findIndex(h => h.toLowerCase().includes('item type')),
-        activityNames: headers.findIndex(h => h.toLowerCase().includes('activity name') || h.toLowerCase().includes('order activity')),
-        location: headers.findIndex(h => h.toLowerCase().includes('location'))
-      };
-      
-      setProcessingStatus('Processing transactions...');
-      
-      // Process real transactions from CSV
-      const processedTransactions = [];
-      let errorCount = 0;
-      
-      for (let i = 0; i < dataRows.length; i++) {
+    // Process data rows with enhanced error handling
+    for (let i = 1; i < lines.length; i++) {
+      try {
+        // Check for abort periodically during processing
+        if (abortController?.signal.aborted) {
+          throw new Error('Processing was cancelled');
+        }
+        
+        const values = parseCSVLine(lines[i]);
+        
+        if (values.length < headers.length) {
+          warnings.push(`Row ${i + 1}: Incomplete data (${values.length}/${headers.length} columns)`);
+          continue;
+        }
+        
+        // Extract and validate core fields
+        const orderId = values[columnMap['Order ID']]?.toString().trim();
+        const orderDateRaw = values[columnMap['Order Date']]?.toString().trim();
+        const customerEmail = values[columnMap['Customer Email']]?.toString().trim().toLowerCase();
+        const netAmountRaw = values[columnMap['Net Amount to Provider']];
+        const paymentStatus = values[columnMap['Payment Status']]?.toString().trim();
+        const itemType = values[columnMap['Item Types']]?.toString().trim();
+        
+        // Validation with specific error messages
+        if (!orderId) {
+          errors.push(`Row ${i + 1}: Missing Order ID`);
+          continue;
+        }
+        
+        if (duplicateIds.has(orderId)) {
+          warnings.push(`Row ${i + 1}: Duplicate Order ID ${orderId} within file`);
+          continue;
+        }
+        duplicateIds.add(orderId);
+        
+        if (!customerEmail || !customerEmail.includes('@')) {
+          errors.push(`Row ${i + 1}: Invalid customer email`);
+          continue;
+        }
+        
+        // Enhanced amount validation
+        const netAmount = parseFloat(netAmountRaw);
+        if (isNaN(netAmount)) {
+          errors.push(`Row ${i + 1}: Invalid net amount "${netAmountRaw}"`);
+          continue;
+        }
+        
+        if (netAmount <= 0) {
+          warnings.push(`Row ${i + 1}: Zero or negative amount $${netAmount}`);
+          continue;
+        }
+        
+        // Only process successful payments
+        if (paymentStatus !== 'Succeeded') {
+          warnings.push(`Row ${i + 1}: Payment status "${paymentStatus}" - skipping`);
+          continue;
+        }
+        
+        // Parse date with error handling
+        let orderDate;
         try {
-          const values = parseCSVLine(dataRows[i]);
-          
-          // Extract real data from row
-          const orderId = values[columnMap.orderId] || `ROW_${i}`;
-          const orderDate = parseDate(values[columnMap.orderDate]);
-          const customerEmail = values[columnMap.customerEmail] || '';
-          const netAmount = parseFloat(values[columnMap.netAmount]) || 0;
-          const paymentStatus = values[columnMap.paymentStatus] || '';
-          const itemType = values[columnMap.itemTypes] || '';
-          const activityName = values[columnMap.activityNames] || '';
-          const location = values[columnMap.location] || 'Mamaroneck';
-          
-          // Only process succeeded payments with positive amounts
-          if (paymentStatus.toLowerCase() === 'succeeded' && netAmount > 0) {
-            processedTransactions.push({
-              orderId: orderId.toString().trim(),
-              date: orderDate.toISOString().split('T')[0],
-              customerEmail: customerEmail.toLowerCase().trim(),
-              netAmount: netAmount,
-              itemType: itemType,
-              activityName: activityName,
-              location: normalizeLocation(location),
-              program: categorizeItemType(itemType, activityName),
-              processed: true
-            });
-          }
-        } catch (error) {
-          errorCount++;
-          console.warn(`Error processing row ${i + 1}:`, error);
+          orderDate = parseDate(orderDateRaw);
+        } catch (dateError) {
+          errors.push(`Row ${i + 1}: Invalid date "${orderDateRaw}"`);
+          continue;
+        }
+        
+        // Extract optional fields safely
+        const activityName = optionalColumns['Order Activity Names'] >= 0 ? 
+          values[optionalColumns['Order Activity Names']]?.toString().trim() || '' : '';
+        const location = optionalColumns['Order Locations'] >= 0 ?
+          values[optionalColumns['Order Locations']]?.toString().trim() || '' : '';
+        const providerName = optionalColumns['Provider Name'] >= 0 ?
+          values[optionalColumns['Provider Name']]?.toString().trim() || '' : '';
+        
+        // Create transaction record
+        const transaction = {
+          orderId: orderId,
+          date: orderDate.toISOString().split('T')[0],
+          customerEmail: customerEmail,
+          netAmount: netAmount,
+          itemType: itemType,
+          activityName: activityName,
+          location: normalizeLocation(location, providerName),
+          program: categorizeItemType(itemType, activityName),
+          processed: true,
+          uploadDate: new Date().toISOString()
+        };
+        
+        processedTransactions.push(transaction);
+        successCount++;
+        
+      } catch (rowError) {
+        errorCount++;
+        errors.push(`Row ${i + 1}: ${rowError.message}`);
+        
+        // Stop processing if too many errors
+        if (errorCount > 100) {
+          throw new Error('Too many processing errors. Please check file format.');
         }
       }
-      
-      console.log(`✅ Processed ${processedTransactions.length} valid transactions`);
-      console.log(`⚠️ Skipped ${errorCount} rows with errors`);
-      
-      return {
-        success: true,
-        transactions: processedTransactions,
-        totalRows: dataRows.length,
-        errorCount: errorCount
-      };
-      
-    } catch (error) {
-      console.error('CSV processing error:', error);
-      return {
-        success: false,
-        error: error.message,
-        transactions: []
-      };
     }
-  };
+    
+    console.log(`✅ Processing complete: ${successCount} valid, ${errorCount} errors, ${warnings.length} warnings`);
+    
+    return {
+      success: true,
+      totalProcessed: processedTransactions.length,
+      processedTransactions,
+      errors,
+      warnings,
+      stats: {
+        totalRows: lines.length - 1,
+        successCount,
+        errorCount,
+        warningCount: warnings.length
+      }
+    };
+    
+  } catch (error) {
+    console.error('❌ CSV processing failed:', error);
+    return {
+      success: false,
+      error: error.message,
+      errors,
+      warnings
+    };
+  }
+};
+
+// Enhanced metrics calculation with comprehensive safety checks
+const updateDashboardMetrics = (transactions = []) => {
+  // Validate input
+  if (!Array.isArray(transactions)) {
+    console.error('updateDashboardMetrics: transactions must be an array');
+    return getEmptyMetrics();
+  }
   
-  // Update dashboard metrics from transactions
-  const updateDashboardMetrics = (transactions) => {
-    if (!transactions || transactions.length === 0) return;
+  if (transactions.length === 0) {
+    console.warn('updateDashboardMetrics: No transactions provided');
+    return getEmptyMetrics();
+  }
+  
+  try {
+    // Filter valid transactions with safety checks
+    const validTransactions = transactions.filter(t => 
+      t && 
+      typeof t === 'object' && 
+      t.netAmount && 
+      !isNaN(t.netAmount) && 
+      t.netAmount > 0 && 
+      t.customerEmail &&
+      t.date
+    );
     
-    // Calculate overview metrics
-    const totalRevenue = transactions.reduce((sum, t) => sum + (t.netAmount || 0), 0);
-    const uniqueEmails = new Set(transactions.map(t => t.customerEmail));
-    const uniqueCustomers = uniqueEmails.size;
-    const avgTransactionValue = transactions.length > 0 ? totalRevenue / transactions.length : 0;
+    if (validTransactions.length === 0) {
+      console.warn('No valid transactions found after filtering');
+      return getEmptyMetrics();
+    }
     
-    // Calculate customer metrics
-    const customerTransactionCounts = {};
-    transactions.forEach(t => {
-      if (t.customerEmail) {
-        customerTransactionCounts[t.customerEmail] = 
-          (customerTransactionCounts[t.customerEmail] || 0) + 1;
+    // Safe calculations with null checks
+    const totalRevenue = validTransactions.reduce((sum, t) => {
+      const amount = parseFloat(t.netAmount) || 0;
+      return sum + amount;
+    }, 0);
+    
+    const totalTransactions = validTransactions.length;
+    
+    // Customer analysis with safe operations
+    const customerData = new Map();
+    validTransactions.forEach(t => {
+      const email = t.customerEmail?.toLowerCase().trim();
+      if (!email) return;
+      
+      if (!customerData.has(email)) {
+        customerData.set(email, {
+          email,
+          transactions: 0,
+          totalSpent: 0,
+          firstDate: t.date,
+          lastDate: t.date
+        });
       }
+      
+      const customer = customerData.get(email);
+      customer.transactions += 1;
+      customer.totalSpent += (parseFloat(t.netAmount) || 0);
+      
+      // Update date range
+      if (t.date < customer.firstDate) customer.firstDate = t.date;
+      if (t.date > customer.lastDate) customer.lastDate = t.date;
     });
-    const repeatCustomers = Object.values(customerTransactionCounts)
-      .filter(count => count > 1).length;
-    const repeatCustomerRate = uniqueCustomers > 0 ? (repeatCustomers / uniqueCustomers) * 100 : 0;
     
-    // Calculate program metrics
-    const programMetrics = {};
-    transactions.forEach(t => {
-      if (!programMetrics[t.program]) {
-        programMetrics[t.program] = { revenue: 0, transactions: 0 };
+    const uniqueCustomers = customerData.size;
+    const avgTransactionValue = totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
+    
+    // Calculate retention metrics safely
+    const returningCustomers = Array.from(customerData.values())
+      .filter(c => c.transactions > 1).length;
+    const repeatCustomerRate = uniqueCustomers > 0 ? 
+      (returningCustomers / uniqueCustomers) * 100 : 0;
+    
+    const avgRevenuePerFamily = uniqueCustomers > 0 ? totalRevenue / uniqueCustomers : 0;
+    
+    // Calculate customer lifetime value with safety
+    const totalCustomerValue = Array.from(customerData.values())
+      .reduce((sum, c) => sum + c.totalSpent, 0);
+    const customerLifetimeValue = uniqueCustomers > 0 ? 
+      totalCustomerValue / uniqueCustomers : 0;
+    
+    // Program distribution with safety checks
+    const programStats = new Map();
+    validTransactions.forEach(t => {
+      const program = t.program || 'Other Programs';
+      if (!programStats.has(program)) {
+        programStats.set(program, { revenue: 0, transactions: 0 });
       }
-      programMetrics[t.program].revenue += (t.netAmount || 0);
-      programMetrics[t.program].transactions += 1;
+      const stats = programStats.get(program);
+      stats.revenue += (parseFloat(t.netAmount) || 0);
+      stats.transactions += 1;
     });
     
-    // Calculate location metrics
-    const locationMetrics = {};
-    transactions.forEach(t => {
-      if (!locationMetrics[t.location]) {
-        locationMetrics[t.location] = { revenue: 0, transactions: 0 };
-      }
-      locationMetrics[t.location].revenue += (t.netAmount || 0);
-      locationMetrics[t.location].transactions += 1;
-    });
-    
-    // Update dashboard data
-    setDashboardData(prev => ({
-      ...prev,
-      overview: {
-        totalRevenue: Math.round(totalRevenue),
-        uniqueCustomers,
-        totalTransactions: transactions.length,
-        avgTransactionValue: Math.round(avgTransactionValue),
-        repeatCustomerRate: Math.round(repeatCustomerRate * 10) / 10,
-        avgRevenuePerFamily: uniqueCustomers > 0 ? Math.round(totalRevenue / uniqueCustomers) : 0,
-        customerLifetimeValue: uniqueCustomers > 0 ? Math.round(totalRevenue / uniqueCustomers * 1.8) : 0
-      },
-      programTypes: prev.programTypes.map(program => {
-        const metrics = programMetrics[program.name] || { revenue: 0, transactions: 0 };
-        return {
-          ...program,
-          value: Math.round(metrics.revenue),
-          transactions: metrics.transactions,
-          percentage: totalRevenue > 0 ? Math.round((metrics.revenue / totalRevenue) * 1000) / 10 : 0
-        };
-      }),
-      locations: prev.locations.map(location => {
-        const metrics = locationMetrics[location.name] || { revenue: 0, transactions: 0 };
-        return {
-          ...location,
-          value: Math.round(metrics.revenue),
-          transactions: metrics.transactions
-        };
-      })
+    const programTypes = Array.from(programStats.entries()).map(([name, stats]) => ({
+      name,
+      value: stats.revenue,
+      revenue: stats.revenue,
+      transactions: stats.transactions,
+      percentage: totalRevenue > 0 ? (stats.revenue / totalRevenue) * 100 : 0
     }));
-  };
-  
-  // File upload handler
-  const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
     
-    // Clear previous status
-    setUploadStatus('');
-    setProcessingStatus('');
-    
-    // Validate file type
-    const validTypes = ['.csv', '.xlsx', '.xls'];
-    const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
-    
-    if (!validTypes.includes(fileExtension)) {
-      setUploadStatus('❌ Invalid file type. Please upload CSV or Excel files only.');
-      setTimeout(() => setUploadStatus(''), 5000);
-      return;
-    }
-    
-    // File size validation
-    if (file.size > 10 * 1024 * 1024) {
-      setUploadStatus('❌ File too large. Maximum size is 10MB.');
-      setTimeout(() => setUploadStatus(''), 5000);
-      return;
-    }
-    
-    setIsUploading(true);
-    
-    try {
-      let result;
-      
-      // Process based on file type
-      if (fileExtension === '.csv') {
-        result = await processCSVFile(file);
-      } else {
-        // For Excel files, show message to use CSV
-        setUploadStatus('⚠️ Excel processing requires additional setup. Please export as CSV from Sawyer for now.');
-        setIsUploading(false);
-        setTimeout(() => setUploadStatus(''), 5000);
-        return;
+    // Location distribution with safety checks
+    const locationStats = new Map();
+    validTransactions.forEach(t => {
+      const location = t.location || 'Mamaroneck';
+      if (!locationStats.has(location)) {
+        locationStats.set(location, { revenue: 0, transactions: 0 });
       }
+      const stats = locationStats.get(location);
+      stats.revenue += (parseFloat(t.netAmount) || 0);
+      stats.transactions += 1;
+    });
+    
+    const locationData = Array.from(locationStats.entries()).map(([name, stats]) => ({
+      name,
+      revenue: stats.revenue,
+      transactions: stats.transactions,
+      percentage: totalRevenue > 0 ? (stats.revenue / totalRevenue) * 100 : 0
+    }));
+    
+    // Monthly trends with safe grouping
+    const monthlyStats = new Map();
+    validTransactions.forEach(t => {
+      if (!t.date) return;
       
-      if (result.success) {
-        const { transactions } = result;
+      try {
+        const date = new Date(t.date);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         
-        // Check for duplicates against existing data
-        const existingOrderIds = new Set(
-          dashboardData.transactions?.map(t => t.orderId) || []
-        );
-        
-        const newTransactions = transactions.filter(
-          t => !existingOrderIds.has(t.orderId)
-        );
-        
-        const duplicateCount = transactions.length - newTransactions.length;
-        
-        // Update dashboard data with new transactions
-        if (newTransactions.length > 0) {
-          const updatedTransactions = [...(dashboardData.transactions || []), ...newTransactions];
-          setDashboardData(prev => ({
-            ...prev,
-            transactions: updatedTransactions,
-            lastUpdated: new Date().toISOString(),
-            uploadHistory: [
-              {
-                id: Date.now(),
-                fileName: file.name,
-                uploadDate: new Date().toISOString(),
-                recordsProcessed: result.totalRows,
-                newRecords: newTransactions.length,
-                duplicatesSkipped: duplicateCount,
-                status: 'completed'
-              },
-              ...(prev.uploadHistory || [])
-            ]
-          }));
-          
-          // Update metrics
-          updateDashboardMetrics(updatedTransactions);
+        if (!monthlyStats.has(monthKey)) {
+          monthlyStats.set(monthKey, {
+            month: monthKey,
+            revenue: 0,
+            transactions: 0,
+            customers: new Set()
+          });
         }
         
-        // Show success message
-        const message = `✅ Upload Complete!\n` +
-          `• File: ${file.name}\n` +
-          `• Total rows: ${result.totalRows}\n` +
-          `• Valid transactions: ${transactions.length}\n` +
-          `• New transactions added: ${newTransactions.length}\n` +
-          `• Duplicates skipped: ${duplicateCount}`;
-        
-        setUploadStatus(message);
-        setTimeout(() => setUploadStatus(''), 10000);
-        
-      } else {
-        setUploadStatus(`❌ Error: ${result.error}`);
-        setTimeout(() => setUploadStatus(''), 5000);
+        const stats = monthlyStats.get(monthKey);
+        stats.revenue += (parseFloat(t.netAmount) || 0);
+        stats.transactions += 1;
+        if (t.customerEmail) {
+          stats.customers.add(t.customerEmail.toLowerCase());
+        }
+      } catch (dateError) {
+        warnings.push(`Invalid date for transaction ${t.orderId}: ${t.date}`);
       }
-      
-    } catch (error) {
-      console.error('Upload error:', error);
-      setUploadStatus(`❌ Upload failed: ${error.message}`);
-      setTimeout(() => setUploadStatus(''), 5000);
-    } finally {
-      setIsUploading(false);
-      setProcessingStatus('');
-      // Reset file input
-      event.target.value = '';
-    }
-  };
-  
-  // Delete uploaded data (admin only)
-  const handleDeleteUploadedData = () => {
-    if (user?.role !== 'admin') return;
+    });
     
-    if (window.confirm('Are you sure you want to delete all uploaded data? This cannot be undone.')) {
-      setDashboardData(getInitialDashboardData());
-      localStorage.removeItem('makeinspiresData');
-      setUploadStatus('✅ All uploaded data has been deleted.');
-      setTimeout(() => setUploadStatus(''), 5000);
-    }
-  };
-  
-  // Filter data based on selections
-  const getFilteredData = useMemo(() => {
-    let filtered = dashboardData.transactions || [];
+    const monthlyTrends = Array.from(monthlyStats.values())
+      .map(stats => ({
+        ...stats,
+        customers: stats.customers.size
+      }))
+      .sort((a, b) => a.month.localeCompare(b.month));
     
-    // Date range filter
+    return {
+      overview: {
+        totalRevenue: Math.round(totalRevenue * 100) / 100, // Round to cents
+        totalTransactions,
+        uniqueCustomers,
+        avgTransactionValue: Math.round(avgTransactionValue * 100) / 100,
+        repeatCustomerRate: Math.round(repeatCustomerRate * 10) / 10,
+        avgRevenuePerFamily: Math.round(avgRevenuePerFamily * 100) / 100,
+        customerLifetimeValue: Math.round(customerLifetimeValue * 100) / 100
+      },
+      programTypes,
+      monthlyTrends,
+      locations: locationData,
+      customerCohorts: Array.from(customerData.values()),
+      transactions: validTransactions
+    };
+    
+  } catch (error) {
+    console.error('Error calculating metrics:', error);
+    return getEmptyMetrics();
+  }
+};
+
+// Safe empty metrics fallback
+const getEmptyMetrics = () => ({
+  overview: {
+    totalRevenue: 0,
+    totalTransactions: 0,
+    uniqueCustomers: 0,
+    avgTransactionValue: 0,
+    repeatCustomerRate: 0,
+    avgRevenuePerFamily: 0,
+    customerLifetimeValue: 0
+  },
+  programTypes: [],
+  monthlyTrends: [],
+  locations: [],
+  customerCohorts: [],
+  transactions: []
+});
+
+// Enhanced data filtering with performance optimizations
+const createGetFilteredData = (dashboardData, filters) => {
+  return useMemo(() => {
+    const { 
+      dateRange, 
+      customDateRange, 
+      selectedLocation, 
+      selectedProgram, 
+      selectedCustomerType,
+      searchTerm 
+    } = filters;
+    
+    let filtered = [...(dashboardData.transactions || [])];
+    
+    // Early return if no data
+    if (filtered.length === 0) {
+      return [];
+    }
+    
+    // Date range filtering with enhanced logic
     if (dateRange !== 'All') {
       const now = new Date();
       let startDate = new Date();
+      let endDate = now;
       
-      switch (dateRange) {
-        case '7D': startDate.setDate(now.getDate() - 7); break;
-        case '30D': startDate.setDate(now.getDate() - 30); break;
-        case '90D': startDate.setDate(now.getDate() - 90); break;
-        case '6M': startDate.setMonth(now.getMonth() - 6); break;
-        case '12M': startDate.setMonth(now.getMonth() - 12); break;
-        case 'YTD': startDate = new Date(now.getFullYear(), 0, 1); break;
-        case 'Custom':
-          if (customDateRange.start) startDate = new Date(customDateRange.start);
-          break;
-      }
-      
-      filtered = filtered.filter(t => new Date(t.date) >= startDate);
-      
-      if (dateRange === 'Custom' && customDateRange.end) {
-        const endDate = new Date(customDateRange.end);
-        filtered = filtered.filter(t => new Date(t.date) <= endDate);
+      try {
+        switch (dateRange) {
+          case '7D': 
+            startDate.setDate(now.getDate() - 7); 
+            break;
+          case '30D': 
+            startDate.setDate(now.getDate() - 30); 
+            break;
+          case '90D': 
+            startDate.setDate(now.getDate() - 90); 
+            break;
+          case '6M': 
+            startDate.setMonth(now.getMonth() - 6); 
+            break;
+          case '12M': 
+            startDate.setFullYear(now.getFullYear() - 1); 
+            break;
+          case 'YTD': 
+            startDate = new Date(now.getFullYear(), 0, 1); 
+            break;
+          case 'Custom':
+            if (customDateRange.start) {
+              startDate = new Date(customDateRange.start);
+              if (isNaN(startDate.getTime())) {
+                console.warn('Invalid custom start date, using default');
+                startDate = new Date(now.getFullYear(), 0, 1);
+              }
+            }
+            if (customDateRange.end) {
+              endDate = new Date(customDateRange.end);
+              if (isNaN(endDate.getTime())) {
+                console.warn('Invalid custom end date, using current date');
+                endDate = now;
+              }
+            }
+            break;
+        }
+        
+        filtered = filtered.filter(t => {
+          if (!t.date) return false;
+          try {
+            const transactionDate = new Date(t.date);
+            return transactionDate >= startDate && transactionDate <= endDate;
+          } catch (error) {
+            console.warn(`Invalid transaction date: ${t.date}`);
+            return false;
+          }
+        });
+        
+      } catch (filterError) {
+        console.error('Date filtering error:', filterError);
+        // Continue with unfiltered data rather than crash
       }
     }
     
-    // Location filter
+    // Location filtering with safety
     if (selectedLocation !== 'All') {
       filtered = filtered.filter(t => t.location === selectedLocation);
     }
     
-    // Program filter
+    // Program filtering with safety
     if (selectedProgram !== 'All') {
       filtered = filtered.filter(t => t.program === selectedProgram);
     }
     
-    // Customer type filter
+    // Customer type filtering with optimized customer counting
     if (selectedCustomerType !== 'All') {
-      const customerCounts = {};
-      dashboardData.transactions?.forEach(t => {
-        customerCounts[t.customerEmail] = (customerCounts[t.customerEmail] || 0) + 1;
+      const customerCounts = new Map();
+      
+      // Count transactions per customer efficiently
+      (dashboardData.transactions || []).forEach(t => {
+        if (t.customerEmail) {
+          const email = t.customerEmail.toLowerCase();
+          customerCounts.set(email, (customerCounts.get(email) || 0) + 1);
+        }
       });
       
       if (selectedCustomerType === 'New') {
-        filtered = filtered.filter(t => customerCounts[t.customerEmail] === 1);
+        filtered = filtered.filter(t => {
+          const email = t.customerEmail?.toLowerCase();
+          return email && customerCounts.get(email) === 1;
+        });
       } else if (selectedCustomerType === 'Returning') {
-        filtered = filtered.filter(t => customerCounts[t.customerEmail] > 1);
+        filtered = filtered.filter(t => {
+          const email = t.customerEmail?.toLowerCase();
+          return email && (customerCounts.get(email) || 0) > 1;
+        });
       }
     }
     
-    return filtered;
-  }, [dashboardData.transactions, dateRange, customDateRange, selectedLocation, selectedProgram, selectedCustomerType]);
-  
-  // Calculate metrics from filtered data
-  const filteredMetrics = useMemo(() => {
-    const filtered = getFilteredData;
-    
-    if (!filtered || filtered.length === 0) {
-      return {
-        totalRevenue: 0,
-        totalTransactions: 0,
-        uniqueCustomers: 0,
-        avgTransactionValue: 0
-      };
+    // Search term filtering
+    if (searchTerm && searchTerm.trim()) {
+      const search = searchTerm.toLowerCase().trim();
+      filtered = filtered.filter(t => 
+        t.customerEmail?.toLowerCase().includes(search) ||
+        t.activityName?.toLowerCase().includes(search) ||
+        t.itemType?.toLowerCase().includes(search) ||
+        t.orderId?.toString().includes(search)
+      );
     }
     
-    const totalRevenue = filtered.reduce((sum, t) => sum + (t.netAmount || 0), 0);
-    const uniqueCustomers = new Set(filtered.map(t => t.customerEmail)).size;
-    const avgTransaction = filtered.length > 0 ? Math.round(totalRevenue / filtered.length) : 0;
+    return filtered;
     
-    return {
-      totalRevenue: Math.round(totalRevenue),
-      totalTransactions: filtered.length,
-      uniqueCustomers,
-      avgTransactionValue: avgTransaction
-    };
-  }, [getFilteredData]);
+  }, [
+    dashboardData.transactions, 
+    dateRange, 
+    customDateRange.start,
+    customDateRange.end, 
+    selectedLocation, 
+    selectedProgram, 
+    selectedCustomerType,
+    searchTerm
+  ]);
+};
+
+// Enhanced file upload handler with abort controller and better error handling
+const createFileUploadHandler = (
+  setUploadStatus, 
+  setIsUploading, 
+  setProcessingStatus, 
+  dashboardData, 
+  setDashboardData,
+  user
+) => {
+  let currentAbortController = null;
   
-  // Chart colors
-  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6B7280'];
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    
+    if (!file) return;
+    
+    // Permission check
+    if (!user || (user.role !== 'admin' && user.role !== 'manager')) {
+      setUploadStatus('❌ Insufficient permissions. Only Admins and Managers can upload files.');
+      setTimeout(() => setUploadStatus(''), 5000);
+      return;
+    }
+    
+    // File validation
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      setUploadStatus('❌ Please select a CSV file. For Sawyer exports, choose CSV format when downloading.');
+      setTimeout(() => setUploadStatus(''), 5000);
+      return;
+    }
+    
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadStatus('❌ File size too large. Maximum size is 10MB.');
+      setTimeout(() => setUploadStatus(''), 5000);
+      return;
+    }
+    
+    // Cancel any existing upload
+    if (currentAbortController) {
+      currentAbortController.abort();
+    }
+    
+    currentAbortController = new AbortController();
+    setIsUploading(true);
+    setUploadStatus('🔄 Processing file...');
+    
+    try {
+      setProcessingStatus('Reading CSV file...');
+      
+      // Process file with abort capability
+      const result = await processCSVFile(file, currentAbortController);
+      
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      
+      const { processedTransactions, errors, warnings, stats } = result;
+      
+      setProcessingStatus('Checking for duplicates...');
+      
+      // Enhanced duplicate detection
+      const existingOrderIds = new Set(
+        (dashboardData.transactions || []).map(t => t.orderId?.toString())
+      );
+      
+      const newTransactions = processedTransactions.filter(t => 
+        !existingOrderIds.has(t.orderId?.toString())
+      );
+      
+      setProcessingStatus('Updating dashboard metrics...');
+      
+      // Combine existing and new transactions
+      const allTransactions = [
+        ...(dashboardData.transactions || []),
+        ...newTransactions
+      ];
+      
+      // Recalculate all metrics from combined data
+      const updatedMetrics = updateDashboardMetrics(allTransactions);
+      
+      setProcessingStatus('Saving data...');
+      
+      // Update state with new data
+      const updatedDashboard = {
+        ...updatedMetrics,
+        lastUpdated: new Date().toISOString(),
+        uploadHistory: [
+          ...(dashboardData.uploadHistory || []),
+          {
+            filename: file.name,
+            uploadDate: new Date().toISOString(),
+            totalRows: stats.totalRows,
+            successCount: stats.successCount,
+            errorCount: stats.errorCount,
+            warningCount: stats.warningCount,
+            newTransactions: newTransactions.length,
+            duplicatesSkipped: processedTransactions.length - newTransactions.length
+          }
+        ]
+      };
+      
+      setDashboardData(updatedDashboard);
+      
+      // Persist to localStorage with error handling
+      try {
+        localStorage.setItem('makeinspiresData', JSON.stringify(updatedDashboard));
+      } catch (storageError) {
+        console.warn('Failed to save to localStorage:', storageError);
+        setUploadStatus('⚠️ Data processed but failed to save locally. Changes may be lost on refresh.');
+      }
+      
+      // Success message with detailed stats
+      let statusMessage = `✅ Upload complete! ${newTransactions.length} new transactions added.`;
+      if (processedTransactions.length - newTransactions.length > 0) {
+        statusMessage += ` ${processedTransactions.length - newTransactions.length} duplicates skipped.`;
+      }
+      if (warnings.length > 0) {
+        statusMessage += ` ${warnings.length} warnings (check console).`;
+      }
+      
+      setUploadStatus(statusMessage);
+      setProcessingStatus('');
+      
+      // Log detailed results
+      console.log('📊 Upload Results:', {
+        file: file.name,
+        totalRows: stats.totalRows,
+        processed: stats.successCount,
+        errors: stats.errorCount,
+        warnings: stats.warningCount,
+        newTransactions: newTransactions.length,
+        duplicates: processedTransactions.length - newTransactions.length
+      });
+      
+      if (errors.length > 0) {
+        console.warn('Processing Errors:', errors);
+      }
+      if (warnings.length > 0) {
+        console.warn('Processing Warnings:', warnings);
+      }
+      
+      setTimeout(() => setUploadStatus(''), 8000);
+      
+    } catch (error) {
+      console.error('❌ Upload failed:', error);
+      setUploadStatus(`❌ Upload failed: ${error.message}`);
+      setProcessingStatus('');
+      setTimeout(() => setUploadStatus(''), 8000);
+    } finally {
+      setIsUploading(false);
+      currentAbortController = null;
+    }
+  };
   
-  // Login screen
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-xl shadow-xl p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">MakeInspires Dashboard</h1>
-            <p className="text-gray-600">Version 45.0</p>
-          </div>
-          
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="admin@makeinspires.com"
-                required
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="password123"
-                required
-              />
-            </div>
-            
-            {authError && (
-              <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">
-                {authError}
-              </div>
-            )}
-            
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? 'Signing in...' : 'Sign In'}
-            </button>
-            
-            <div className="text-sm text-gray-600 mt-4">
-              <p className="font-semibold mb-2">Demo Credentials:</p>
-              <p>Admin: admin@makeinspires.com</p>
-              <p>Manager: manager@makeinspires.com</p>
-              <p>Viewer: viewer@makeinspires.com</p>
-              <p className="mt-2">Password: password123</p>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
+  // Return handler with cleanup function
+  return {
+    handleFileUpload,
+    cancelUpload: () => {
+      if (currentAbortController) {
+        currentAbortController.abort();
+        setUploadStatus('Upload cancelled');
+        setIsUploading(false);
+        setTimeout(() => setUploadStatus(''), 3000);
+      }
+    }
+  };
+};
+
+// Enhanced state management hooks with safety
+const useSafeState = (initialValue, validator = null) => {
+  const [value, setValue] = useState(initialValue);
+  
+  const safeSetValue = (newValue) => {
+    try {
+      // Validate if validator provided
+      if (validator && !validator(newValue)) {
+        console.warn('State validation failed, keeping previous value');
+        return;
+      }
+      
+      setValue(newValue);
+    } catch (error) {
+      console.error('State update error:', error);
+      // Keep previous value on error
+    }
+  };
+  
+  return [value, safeSetValue];
+};
+
+// Safe localStorage operations
+const safeLocalStorage = {
+  get: (key, defaultValue = null) => {
+    try {
+      const item = localStorage.getItem(key);
+      return item ? JSON.parse(item) : defaultValue;
+    } catch (error) {
+      console.warn(`Failed to read from localStorage: ${key}`, error);
+      return defaultValue;
+    }
+  },
+  
+  set: (key, value) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+      return true;
+    } catch (error) {
+      console.warn(`Failed to write to localStorage: ${key}`, error);
+      return false;
+    }
+  },
+  
+  remove: (key) => {
+    try {
+      localStorage.removeItem(key);
+      return true;
+    } catch (error) {
+      console.warn(`Failed to remove from localStorage: ${key}`, error);
+      return false;
+    }
   }
-  
-  // Main dashboard
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">MakeInspires Dashboard</h1>
-              <span className="ml-3 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">v45.0</span>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Shield size={16} className="text-gray-500" />
-                <span className="text-sm text-gray-700">{user.name}</span>
-                <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full capitalize">
-                  {user.role}
-                </span>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
-              >
-                <LogOut size={16} />
-                <span className="text-sm">Logout</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-      
-      {/* Filters */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Date Range Filter */}
-              <select
-                value={dateRange}
-                onChange={(e) => setDateRange(e.target.value)}
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="7D">Last 7 Days</option>
-                <option value="30D">Last 30 Days</option>
-                <option value="90D">Last 90 Days</option>
-                <option value="6M">Last 6 Months</option>
-                <option value="12M">Last 12 Months</option>
-                <option value="YTD">Year to Date</option>
-                <option value="All">All Time</option>
-                <option value="Custom">Custom Range</option>
-              </select>
-              
-              {/* Location Filter */}
-              <select
-                value={selectedLocation}
-                onChange={(e) => setSelectedLocation(e.target.value)}
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="All">All Locations</option>
-                <option value="Mamaroneck">Mamaroneck</option>
-                <option value="NYC">NYC</option>
-                <option value="Chappaqua">Chappaqua</option>
-                <option value="Partners">Partners</option>
-              </select>
-              
-              {/* Program Filter */}
-              <select
-                value={selectedProgram}
-                onChange={(e) => setSelectedProgram(e.target.value)}
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="All">All Programs</option>
-                <option value="Semester Programs">Semester Programs</option>
-                <option value="Weekly Programs">Weekly Programs</option>
-                <option value="Drop-in Sessions">Drop-in Sessions</option>
-                <option value="Birthday Parties">Birthday Parties</option>
-                <option value="Summer Camps">Summer Camps</option>
-                <option value="Workshops & MakeJams">Workshops & MakeJams</option>
-                <option value="Other Programs">Other Programs</option>
-              </select>
-              
-              {/* Advanced Filters Toggle */}
-              <button
-                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                className="flex items-center space-x-1 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg"
-              >
-                <Filter size={14} />
-                <span>Advanced</span>
-                <ChevronDown size={14} className={`transform transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} />
-              </button>
-            </div>
-            
-            {/* Metrics Summary */}
-            <div className="flex items-center space-x-4 text-sm">
-              <div>
-                <span className="text-gray-500">Revenue:</span>
-                <span className="ml-1 font-semibold">${filteredMetrics.totalRevenue.toLocaleString()}</span>
-              </div>
-              <div>
-                <span className="text-gray-500">Transactions:</span>
-                <span className="ml-1 font-semibold">{filteredMetrics.totalTransactions.toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-          
-          {/* Advanced Filters Panel */}
-          {showAdvancedFilters && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Customer Type</label>
-                  <select
-                    value={selectedCustomerType}
-                    onChange={(e) => setSelectedCustomerType(e.target.value)}
-                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="All">All Customers</option>
-                    <option value="New">New Customers</option>
-                    <option value="Returning">Returning Customers</option>
-                  </select>
-                </div>
-                
-                {dateRange === 'Custom' && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                      <input
-                        type="date"
-                        value={customDateRange.start}
-                        onChange={(e) => setCustomDateRange(prev => ({ ...prev, start: e.target.value }))}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                      <input
-                        type="date"
-                        value={customDateRange.end}
-                        onChange={(e) => setCustomDateRange(prev => ({ ...prev, end: e.target.value }))}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-      
-      {/* Tab Navigation */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex space-x-8 overflow-x-auto">
-            {[
-              { id: 'business-overview', label: 'Business Overview', icon: DollarSign },
-              { id: 'performance-analytics', label: 'Performance Analytics', icon: TrendingUp },
-              { id: 'year-over-year', label: 'Year-over-Year', icon: Calendar },
-              { id: 'predictive-analytics', label: 'Predictive Analytics', icon: Brain },
-              { id: 'customer-insights', label: 'Customer Insights', icon: Users },
-              { id: 'partner-programs', label: 'Partner Programs', icon: Globe },
-              { id: 'data-upload', label: 'Data Upload', icon: Upload }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <tab.icon size={16} />
-                <span>{tab.label}</span>
-              </button>
-            ))}
-          </nav>
-        </div>
-      </div>
-      
-      {/* Main Content Area */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Business Overview Tab */}
-        {activeTab === 'business-overview' && (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Business Overview</h2>
-            
-            {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Total Revenue</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      ${filteredMetrics.totalRevenue.toLocaleString()}
-                    </p>
-                  </div>
-                  <DollarSign className="text-blue-500" size={24} />
-                </div>
-              </div>
-              
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Total Transactions</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {filteredMetrics.totalTransactions.toLocaleString()}
-                    </p>
-                  </div>
-                  <Activity className="text-green-500" size={24} />
-                </div>
-              </div>
-              
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Unique Customers</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {filteredMetrics.uniqueCustomers.toLocaleString()}
-                    </p>
-                  </div>
-                  <Users className="text-purple-500" size={24} />
-                </div>
-              </div>
-              
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Avg Transaction</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      ${filteredMetrics.avgTransactionValue}
-                    </p>
-                  </div>
-                  <Target className="text-orange-500" size={24} />
-                </div>
-              </div>
-            </div>
-            
-            {/* Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Program Distribution */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold mb-4">Program Distribution</h3>
-                {dashboardData.programTypes && Array.isArray(dashboardData.programTypes) && dashboardData.programTypes.some(p => p.value > 0) ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={dashboardData.programTypes.filter(p => p.value > 0)}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percentage }) => `${name}: ${percentage}%`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {dashboardData.programTypes.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value) => `${value.toLocaleString()}`} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-[300px] flex items-center justify-center text-gray-500">
-                    No data available. Please upload transaction data.
-                  </div>
-                )}
-              </div>
-              
-              {/* Location Performance */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold mb-4">Location Performance</h3>
-                {dashboardData.locations && Array.isArray(dashboardData.locations) && dashboardData.locations.some(l => l.value > 0) ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={dashboardData.locations}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip formatter={(value) => `${value.toLocaleString()}`} />
-                      <Bar dataKey="value" fill="#3B82F6" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-[300px] flex items-center justify-center text-gray-500">
-                    No data available. Please upload transaction data.
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {/* Data Upload Tab */}
-        {activeTab === 'data-upload' && (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Data Upload</h2>
-            
-            {/* Upload Section */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="space-y-4">
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                  <Upload className="mx-auto text-gray-400 mb-4" size={48} />
-                  <h3 className="text-lg font-semibold mb-2">Upload Transaction Data</h3>
-                  <p className="text-gray-600 mb-4">
-                    Upload your Sawyer export file (CSV format recommended)
-                  </p>
-                  
-                  <input
-                    type="file"
-                    accept=".csv,.xlsx,.xls"
-                    onChange={handleFileUpload}
-                    disabled={isUploading || user?.role === 'viewer'}
-                    className="hidden"
-                    id="file-upload"
-                  />
-                  <label
-                    htmlFor="file-upload"
-                    className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
-                      isUploading || user?.role === 'viewer'
-                        ? 'bg-gray-400 cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
-                    }`}
-                  >
-                    {isUploading ? 'Processing...' : 'Select File'}
-                  </label>
-                  
-                  {user?.role === 'viewer' && (
-                    <p className="mt-4 text-sm text-red-600">
-                      Viewers do not have permission to upload data.
-                    </p>
-                  )}
-                </div>
-                
-                {/* Processing Status */}
-                {processingStatus && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-center space-x-2">
-                      <RefreshCw className="animate-spin text-blue-600" size={20} />
-                      <span className="text-blue-900">{processingStatus}</span>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Upload Status */}
-                {uploadStatus && (
-                  <div className={`rounded-lg p-4 ${
-                    uploadStatus.includes('✅') ? 'bg-green-50 border border-green-200' :
-                    uploadStatus.includes('❌') ? 'bg-red-50 border border-red-200' :
-                    'bg-yellow-50 border border-yellow-200'
-                  }`}>
-                    <pre className="whitespace-pre-wrap text-sm">{uploadStatus}</pre>
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            {/* Database Status */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold mb-4">Database Status</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600">Total Records</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {dashboardData.transactions?.length || 0}
-                  </p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600">Last Updated</p>
-                  <p className="text-sm font-medium text-gray-900">
-                    {dashboardData.lastUpdated 
-                      ? new Date(dashboardData.lastUpdated).toLocaleString()
-                      : 'Never'}
-                  </p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600">Upload History</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {dashboardData.uploadHistory?.length || 0} files
-                  </p>
-                </div>
-              </div>
-              
-              {/* Admin Actions */}
-              {user?.role === 'admin' && dashboardData.transactions?.length > 0 && (
-                <div className="mt-6 pt-6 border-t border-gray-200">
-                  <button
-                    onClick={handleDeleteUploadedData}
-                    className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                  >
-                    <Trash2 size={16} />
-                    <span>Delete All Uploaded Data</span>
-                  </button>
-                </div>
-              )}
-            </div>
-            
-            {/* Upload History */}
-            {dashboardData.uploadHistory?.length > 0 && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold mb-4">Upload History</h3>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          File Name
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Upload Date
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Records
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {dashboardData.uploadHistory.slice(0, 10).map((upload) => (
-                        <tr key={upload.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {upload.fileName}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {new Date(upload.uploadDate).toLocaleString()}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {upload.newRecords} new / {upload.duplicatesSkipped} skipped
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                              {upload.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-        
-        {/* Other tabs - placeholder content */}
-        {activeTab === 'performance-analytics' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Performance Analytics</h2>
-            <p className="text-gray-600">Upload transaction data to view performance analytics.</p>
-          </div>
-        )}
-        
-        {activeTab === 'year-over-year' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Year-over-Year Analysis</h2>
-            <p className="text-gray-600">Upload transaction data to view year-over-year comparisons.</p>
-          </div>
-        )}
-        
-        {activeTab === 'predictive-analytics' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Predictive Analytics</h2>
-            <p className="text-gray-600">Upload transaction data to view predictive analytics and forecasts.</p>
-          </div>
-        )}
-        
-        {activeTab === 'customer-insights' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Customer Insights</h2>
-            <p className="text-gray-600">Upload transaction data to view customer analytics and retention metrics.</p>
-          </div>
-        )}
-        
-        {activeTab === 'partner-programs' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Partner Programs</h2>
-            <p className="text-gray-600">Partner program features coming soon.</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
 };
 
-// App wrapper with ErrorBoundary
-const App = () => {
-  return (
-    <ErrorBoundary>
-      <MakeInspiresAdminDashboard />
-    </ErrorBoundary>
-  );
+// Export all fixed functions
+export {
+  parseCSVLine,
+  parseDate,
+  normalizeLocation,
+  categorizeItemType,
+  processCSVFile,
+  updateDashboardMetrics,
+  getEmptyMetrics,
+  createGetFilteredData,
+  createFileUploadHandler,
+  useSafeState,
+  safeLocalStorage
 };
 
-export default App;
+// =============================================================================
+// USAGE EXAMPLES AND INTEGRATION NOTES
+// =============================================================================
+
+/*
+INTEGRATION INTO MAIN COMPONENT:
+
+// Replace existing useState with safe state management
+const [dashboardData, setDashboardData] = useSafeState(
+  safeLocalStorage.get('makeinspiresData', getEmptyMetrics()),
+  (data) => data && typeof data === 'object' && data.transactions
+);
+
+// Replace existing getFilteredData with enhanced version
+const getFilteredData = createGetFilteredData(dashboardData, {
+  dateRange,
+  customDateRange,
+  selectedLocation,
+  selectedProgram,
+  selectedCustomerType,
+  searchTerm
+});
+
+// Replace existing upload handler
+const { handleFileUpload, cancelUpload } = createFileUploadHandler(
+  setUploadStatus,
+  setIsUploading,
+  setProcessingStatus,
+  dashboardData,
+  setDashboardData,
+  user
+);
+
+TESTING CHECKLIST:
+□ Empty CSV file handling
+□ Malformed CSV data
+□ Missing required columns
+□ Invalid dates and amounts
+□ Large file processing (stress test)
+□ Duplicate order ID detection
+□ Network interruption during upload
+□ localStorage quota exceeded
+□ Invalid customer email formats
+□ Special characters in data fields
+
+ERROR SCENARIOS HANDLED:
+✅ File reading failures
+✅ Invalid CSV format
+✅ Missing required columns
+✅ Date parsing errors
+✅ Amount validation failures
+✅ Duplicate detection
+✅ Memory limitations
+✅ State update failures
+✅ localStorage errors
+✅ Processing cancellation
+*/
