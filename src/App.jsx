@@ -601,9 +601,20 @@ const MakeInspiresDashboard = () => {
         case 'ytd':
           cutoffDate.setMonth(0, 1);
           break;
+        case 'custom':
+          if (customStartDate && customEndDate) {
+            const startDate = new Date(customStartDate);
+            const endDate = new Date(customEndDate);
+            filteredTransactions = filteredTransactions.filter(t => {
+              if (!t || !t.orderDate) return false;
+              const transactionDate = new Date(t.orderDate);
+              return transactionDate >= startDate && transactionDate <= endDate;
+            });
+          }
+          break;
       }
       
-      if (dateRange !== '6m' && dateRange !== '12m') {
+      if (dateRange !== 'custom' && dateRange !== '6m' && dateRange !== '12m') {
         filteredTransactions = filteredTransactions.filter(t => {
           if (!t || !t.orderDate) return false;
           return new Date(t.orderDate) >= cutoffDate;
@@ -667,6 +678,177 @@ const MakeInspiresDashboard = () => {
             <p className="text-2xl font-bold text-blue-600">{value}</p>
             {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
           </div>
+
+      {/* Filters Bar */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-wrap items-center justify-between py-3 gap-4">
+            <div className="flex flex-wrap items-center space-x-4">
+              <div className="flex space-x-2">
+                {['7d', '30d', '90d', '6m', '12m', 'ytd', 'all'].map(range => (
+                  <button
+                    key={range}
+                    onClick={() => setDateRange(range)}
+                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                      dateRange === range
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    }`}
+                  >
+                    {range.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => setShowFilterPanel(!showFilterPanel)}
+                className="flex items-center space-x-2 px-3 py-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+              >
+                <Filter size={16} />
+                <span className="text-sm">Filters</span>
+                <ChevronDown size={14} className={`transition-transform ${showFilterPanel ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
+
+            <div className="text-sm text-gray-500">
+              {filteredData.overview.totalTransactions.toLocaleString()} transactions • {formatCurrency(filteredData.overview.totalRevenue)}
+            </div>
+          </div>
+
+          {showFilterPanel && (
+            <div className="border-t border-gray-200 py-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                  <select
+                    value={selectedLocation}
+                    onChange={(e) => setSelectedLocation(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Locations</option>
+                    <option value="mamaroneck">Mamaroneck</option>
+                    <option value="nyc">NYC</option>
+                    <option value="chappaqua">Chappaqua</option>
+                    <option value="partners">Partners</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Program Type</label>
+                  <select
+                    value={selectedProgramType}
+                    onChange={(e) => setSelectedProgramType(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Programs</option>
+                    <option value="semester">Semester Programs</option>
+                    <option value="weekly">Weekly Programs</option>
+                    <option value="dropin">Drop-in Sessions</option>
+                    <option value="party">Birthday Parties</option>
+                    <option value="camp">Summer Camps</option>
+                    <option value="workshop">Workshops & MakeJams</option>
+                    <option value="other">Other Programs</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Customer Type</label>
+                  <select
+                    value={selectedCustomerType}
+                    onChange={(e) => setSelectedCustomerType(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Customers</option>
+                    <option value="new">New Customers</option>
+                    <option value="returning">Returning Customers</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Custom Date Range</label>
+                  <div className="flex space-x-2">
+                    <input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                    <input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+        {activeTab === 'partners' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
+              <MapPin size={48} className="mx-auto text-gray-400 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Partner Programs</h3>
+              <p className="text-gray-600">Coming soon - Partner analytics and performance tracking</p>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'yoy' && (
+          <div className="space-y-6">
+            {dashboardData.transactions.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
+                <TrendingUp size={48} className="mx-auto text-gray-400 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No YoY Data</h3>
+                <p className="text-gray-600">Upload transaction data to view year-over-year trends.</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow-sm border p-6">
+                <h3 className="text-lg font-semibold mb-4">Year-over-Year Growth</h3>
+                <ResponsiveContainer width="100%" height={400}>
+                  <LineChart data={filteredData.monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" tickFormatter={formatMonth} />
+                    <YAxis tickFormatter={(value) => `${(value/1000).toFixed(0)}K`} />
+                    <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
+                    <Legend />
+                    <Line type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={2} name="Monthly Revenue" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'predictive' && (
+          <div className="space-y-6">
+            {dashboardData.transactions.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
+                <Target size={48} className="mx-auto text-gray-400 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No Predictive Data</h3>
+                <p className="text-gray-600">Upload transaction data to view revenue forecasting.</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow-sm border p-6">
+                <h3 className="text-lg font-semibold mb-4">Revenue Forecasting</h3>
+                <p className="text-gray-600 mb-4">Predictive analytics based on historical trends and seasonal patterns.</p>
+                <ResponsiveContainer width="100%" height={400}>
+                  <LineChart data={filteredData.monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" tickFormatter={formatMonth} />
+                    <YAxis tickFormatter={(value) => `${(value/1000).toFixed(0)}K`} />
+                    <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
+                    <Legend />
+                    <Line type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={2} name="Historical Revenue" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        )}
+        </div>
+      </div>
           <div className="p-3 rounded-full bg-blue-100 ml-2">
             <Icon size={20} className="text-blue-600" />
           </div>
@@ -782,6 +964,12 @@ const MakeInspiresDashboard = () => {
   }
 
   const filteredData = getFilteredData();
+  const currentMonth = filteredData.monthlyData && filteredData.monthlyData.length > 0 ? 
+    filteredData.monthlyData[filteredData.monthlyData.length - 1] : null;
+  const previousMonth = filteredData.monthlyData && filteredData.monthlyData.length > 1 ? 
+    filteredData.monthlyData[filteredData.monthlyData.length - 2] : null;
+  const monthlyGrowth = previousMonth && currentMonth && previousMonth.revenue ? 
+    ((currentMonth.revenue - previousMonth.revenue) / previousMonth.revenue * 100).toFixed(1) : '0';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -823,7 +1011,10 @@ const MakeInspiresDashboard = () => {
             {[
               { id: 'overview', label: 'Overview', icon: BarChart3 },
               { id: 'analytics', label: 'Analytics', icon: Activity },
+              { id: 'yoy', label: 'YoY', icon: TrendingUp },
+              { id: 'predictive', label: 'Predictive', icon: Target },
               { id: 'customers', label: 'Customers', icon: Users },
+              { id: 'partners', label: 'Partners', icon: MapPin },
               { id: 'upload', label: 'Upload', icon: Upload }
             ].map(tab => (
               <button
@@ -867,6 +1058,7 @@ const MakeInspiresDashboard = () => {
                   <MetricCard
                     title="Total Revenue"
                     value={formatCurrency(filteredData.overview.totalRevenue)}
+                    subtitle={`${Number(monthlyGrowth) > 0 ? '+' : ''}${monthlyGrowth}% vs last month`}
                     icon={DollarSign}
                   />
                   <MetricCard
