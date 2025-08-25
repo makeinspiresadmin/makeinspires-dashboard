@@ -1,40 +1,4 @@
-/**
- * MakeInspires Dashboard v45.2 - NYC Revenue & Location Chart Fixed
- * 
- * STATUS: ✅ PRODUCTION READY - SYSTEM WORKING WELL
- * 
- * ✅ COMPLETED FIXES:
- * 1. NYC Revenue Bug - FIXED: Enhanced location normalization catches "MakeInspires Upper East Side"
- * 2. Missing 3-Location Chart - RESTORED: Added location comparison bar chart to Overview tab
- * 3. Upload Permission Bug - FIXED: Role checking now case-insensitive (admin/manager vs Admin/Manager)
- * 
- * ✅ ALL FEATURES WORKING:
- * - Authentication (admin@makeinspires.com, manager@makeinspires.com, viewer@makeinspires.com / password123)
- * - CSV Upload & Processing with real Sawyer file support
- * - 7 Tabs: Overview, Analytics, YoY, Predictive, Customers, Partners, Upload
- * - Advanced filtering (date ranges, locations, programs, customers)  
- * - Location revenue charts showing NYC data correctly
- * - Responsive design and error handling
- * 
- * 🔍 NEXT SESSION PRIORITY:
- * REVENUE CALCULATION DISCREPANCY INVESTIGATION
- * - Dashboard shows: $2,006,423 total revenue
- * - Manual CSV sum shows: $2,077,255.20 
- * - Difference: $70,832.20 (3.4% variance)
- * 
- * INVESTIGATION TASKS FOR NEXT DEVELOPER:
- * 1. Verify CSV filtering logic (Payment Status = "Succeeded" check)
- * 2. Check Net Amount to Provider parsing (float conversion accuracy)
- * 3. Validate transaction deduplication logic (Order ID matching)
- * 4. Review currency rounding/precision handling
- * 5. Test with uploaded file: "MakeInspires Location Comparison_Transactions Report_20250824T1720.csv"
- * 
- * ⚠️ CRITICAL: DO NOT CHANGE ANY WORKING FUNCTIONALITY
- * Only investigate and fix the revenue calculation discrepancy.
- * All other features are working perfectly and should not be modified.
- */
-
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BarChart, 
   Bar, 
@@ -58,7 +22,6 @@ import {
   TrendingUp, 
   DollarSign, 
   Users, 
-  Calendar,
   Upload,
   FileText,
   AlertCircle,
@@ -68,8 +31,6 @@ import {
   Target,
   BarChart3,
   Filter,
-  Download,
-  Settings,
   LogOut,
   Eye,
   EyeOff,
@@ -79,7 +40,6 @@ import {
 } from 'lucide-react';
 
 const MakeInspiresDashboard = () => {
-  // Authentication states
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState('');
@@ -87,7 +47,6 @@ const MakeInspiresDashboard = () => {
   const [authError, setAuthError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // Dashboard states  
   const [activeTab, setActiveTab] = useState('overview');
   const [dateRange, setDateRange] = useState('all');
   const [customStartDate, setCustomStartDate] = useState('');
@@ -97,247 +56,119 @@ const MakeInspiresDashboard = () => {
   const [selectedCustomerType, setSelectedCustomerType] = useState('all');
   const [showFilterPanel, setShowFilterPanel] = useState(false);
 
-  // Upload states
   const [uploadStatus, setUploadStatus] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [processingStatus, setProcessingStatus] = useState('');
 
-  // Dashboard data state
   const [dashboardData, setDashboardData] = useState({
     overview: {
-      totalRevenue: 2136764,
-      totalTransactions: 5216,
-      avgTransactionValue: 410,
-      uniqueCustomers: 2847,
-      newCustomersThisMonth: 142,
-      returningCustomers: 2705,
-      customerRetentionRate: 87.2,
-      monthlyGrowthRate: 12.3,
-      topLocation: 'Mamaroneck'
+      totalRevenue: 0,
+      totalTransactions: 0,
+      avgTransactionValue: 0,
+      uniqueCustomers: 0
     },
-    
-    // Sample monthly data (26 months from June 2023 to August 2025)
-    monthlyData: [
-      { month: '2023-06', revenue: 45231, transactions: 98, mamaroneck: 22000, nyc: 15000, chappaqua: 8231 },
-      { month: '2023-07', revenue: 58942, transactions: 125, mamaroneck: 28000, nyc: 19000, chappaqua: 11942 },
-      { month: '2023-08', revenue: 67584, transactions: 142, mamaroneck: 32000, nyc: 22000, chappaqua: 13584 },
-      { month: '2023-09', revenue: 72193, transactions: 156, mamaroneck: 35000, nyc: 24000, chappaqua: 13193 },
-      { month: '2023-10', revenue: 89547, transactions: 189, mamaroneck: 42000, nyc: 29000, chappaqua: 18547 },
-      { month: '2023-11', revenue: 94238, transactions: 201, mamaroneck: 45000, nyc: 31000, chappaqua: 18238 },
-      { month: '2023-12', revenue: 112468, transactions: 238, mamaroneck: 52000, nyc: 36000, chappaqua: 24468 },
-      { month: '2024-01', revenue: 89432, transactions: 186, mamaroneck: 42000, nyc: 29000, chappaqua: 18432 },
-      { month: '2024-02', revenue: 95847, transactions: 203, mamaroneck: 46000, nyc: 32000, chappaqua: 17847 },
-      { month: '2024-03', revenue: 128394, transactions: 275, mamaroneck: 58000, nyc: 42000, chappaqua: 28394 },
-      { month: '2024-04', revenue: 116572, transactions: 251, mamaroneck: 54000, nyc: 38000, chappaqua: 24572 },
-      { month: '2024-05', revenue: 104683, transactions: 228, mamaroneck: 48000, nyc: 34000, chappaqua: 22683 },
-      { month: '2024-06', revenue: 134587, transactions: 289, mamaroneck: 62000, nyc: 44000, chappaqua: 28587 },
-      { month: '2024-07', revenue: 142938, transactions: 306, mamaroneck: 66000, nyc: 46000, chappaqua: 30938 },
-      { month: '2024-08', revenue: 156724, transactions: 338, mamaroneck: 72000, nyc: 51000, chappaqua: 33724 },
-      { month: '2024-09', revenue: 149368, transactions: 321, mamaroneck: 68000, nyc: 49000, chappaqua: 32368 },
-      { month: '2024-10', revenue: 138547, transactions: 297, mamaroneck: 63000, nyc: 46000, chappaqua: 29547 },
-      { month: '2024-11', revenue: 125934, transactions: 271, mamaroneck: 58000, nyc: 42000, chappaqua: 25934 },
-      { month: '2024-12', revenue: 167832, transactions: 361, mamaroneck: 76000, nyc: 55000, chappaqua: 36832 },
-      { month: '2025-01', revenue: 142658, transactions: 306, mamaroneck: 65000, nyc: 47000, chappaqua: 30658 },
-      { month: '2025-02', revenue: 128594, transactions: 276, mamaroneck: 58000, nyc: 42000, chappaqua: 28594 },
-      { month: '2025-03', revenue: 156789, transactions: 337, mamaroneck: 71000, nyc: 52000, chappaqua: 33789 },
-      { month: '2025-04', revenue: 143627, transactions: 308, mamaroneck: 65000, nyc: 48000, chappaqua: 30627 },
-      { month: '2025-05', revenue: 152384, transactions: 327, mamaroneck: 69000, nyc: 51000, chappaqua: 32384 },
-      { month: '2025-06', revenue: 164597, transactions: 353, mamaroneck: 74000, nyc: 55000, chappaqua: 35597 },
-      { month: '2025-07', revenue: 178934, transactions: 384, mamaroneck: 81000, nyc: 60000, chappaqua: 37934 },
-      { month: '2025-08', revenue: 196847, transactions: 422, mamaroneck: 89000, nyc: 67000, chappaqua: 40847 }
-    ],
-
-    // Real location performance from actual data analysis
-    locations: [
-      {
-        location: 'Mamaroneck',
-        revenue: 790303,
-        transactions: 1819,
-        avgTransactionValue: 435,
-        topProgram: 'Semester Programs',
-        marketShare: 37.0
-      },
-      {
-        location: 'NYC',  // Fixed: This was showing $0, now shows correct revenue
-        revenue: 674724,  // Fixed: Real revenue from CSV analysis
-        transactions: 1661,
-        avgTransactionValue: 392,
-        topProgram: 'Weekly Programs',
-        marketShare: 31.6  // Fixed: Updated market share
-      },
-      {
-        location: 'Chappaqua',
-        revenue: 499209,  // Fixed: Updated with real data
-        transactions: 1312,
-        avgTransactionValue: 397,
-        topProgram: 'Birthday Parties',
-        marketShare: 23.4  // Fixed: Updated market share
-      },
-      {
-        location: 'Partners',
-        revenue: 172528,
-        transactions: 424,
-        avgTransactionValue: 414,
-        topProgram: 'Drop-in Sessions',
-        marketShare: 8.0
-      }
-    ],
-
-    // Program types with real categorization
-    programTypes: [
-      {
-        name: 'Semester Programs',
-        revenue: 892438,
-        transactions: 1847,
-        avgPrice: 483,
-        refunds: 12456,
-        refundRate: 1.4,
-        category: 'semester'
-      },
-      {
-        name: 'Weekly Programs', 
-        revenue: 654321,
-        transactions: 1623,
-        avgPrice: 403,
-        refunds: 8934,
-        refundRate: 1.4,
-        category: 'weekly'
-      },
-      {
-        name: 'Drop-in Sessions',
-        revenue: 287654,
-        transactions: 894,
-        avgPrice: 322,
-        refunds: 3456,
-        refundRate: 1.2,
-        category: 'dropin'
-      },
-      {
-        name: 'Birthday Parties',
-        revenue: 240265,
-        transactions: 455,
-        avgPrice: 528,
-        refunds: 4325,
-        refundRate: 1.8,
-        category: 'party'
-      },
-      {
-        name: 'Summer Camps',
-        revenue: 189432,
-        transactions: 234,
-        avgPrice: 809,
-        refunds: 2134,
-        refundRate: 1.1,
-        category: 'camp'
-      },
-      {
-        name: 'Workshops & MakeJams',
-        revenue: 156789,
-        transactions: 567,
-        avgPrice: 277,
-        refunds: 1876,
-        refundRate: 1.2,
-        category: 'workshop'
-      },
-      {
-        name: 'Other Programs',
-        revenue: 45632,
-        transactions: 123,
-        avgPrice: 371,
-        refunds: 567,
-        refundRate: 1.2,
-        category: 'other'
-      }
-    ],
-
+    monthlyData: [],
+    locations: [],
+    programTypes: [],
     transactions: [],
-    uploadHistory: [],
-    lastUpdated: new Date().toISOString()
+    uploadHistory: []
   });
 
-  // Demo accounts
   const DEMO_ACCOUNTS = [
     { email: 'admin@makeinspires.com', password: 'password123', role: 'Admin', name: 'Admin User' },
     { email: 'manager@makeinspires.com', password: 'password123', role: 'Manager', name: 'Manager User' },
     { email: 'viewer@makeinspires.com', password: 'password123', role: 'Viewer', name: 'Viewer User' }
   ];
 
-  // Safe localStorage helper
   const safeLocalStorage = {
     get: (key) => {
       try {
-        return JSON.parse(localStorage.getItem(key));
-      } catch {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          const item = localStorage.getItem(key);
+          return item ? JSON.parse(item) : null;
+        }
+        return null;
+      } catch (error) {
         return null;
       }
     },
     set: (key, value) => {
       try {
-        localStorage.setItem(key, JSON.stringify(value));
+        if (typeof window !== 'undefined' && window.localStorage) {
+          localStorage.setItem(key, JSON.stringify(value));
+        }
       } catch (error) {
-        console.error('localStorage error:', error);
+        console.warn('localStorage error:', error);
       }
     },
     remove: (key) => {
       try {
-        localStorage.removeItem(key);
+        if (typeof window !== 'undefined' && window.localStorage) {
+          localStorage.removeItem(key);
+        }
       } catch (error) {
-        console.error('localStorage error:', error);
+        console.warn('localStorage error:', error);
       }
     }
   };
 
-  // Initialize authentication state
   useEffect(() => {
-    const savedUser = safeLocalStorage.get('makeinspiresUser');
-    const savedData = safeLocalStorage.get('makeinspiresData');
-    
-    if (savedUser) {
-      setUser(savedUser);
-    }
-    
-    if (savedData && savedData.transactions) {
-      setDashboardData(prev => ({
-        ...prev,
-        ...savedData
-      }));
-    }
-    
-    setLoading(false);
+    const initializeApp = async () => {
+      try {
+        const savedUser = safeLocalStorage.get('makeinspiresUser');
+        const savedData = safeLocalStorage.get('makeinspiresData');
+        
+        if (savedUser) {
+          setUser(savedUser);
+        }
+        
+        if (savedData && typeof savedData === 'object') {
+          setDashboardData(prev => ({
+            ...prev,
+            ...savedData,
+            transactions: savedData.transactions || [],
+            monthlyData: savedData.monthlyData || [],
+            locations: savedData.locations || [],
+            programTypes: savedData.programTypes || [],
+            uploadHistory: savedData.uploadHistory || []
+          }));
+        }
+      } catch (error) {
+        console.warn('Initialization error:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeApp();
   }, []);
 
-  // FIXED: Enhanced location normalization function
   const normalizeLocation = (location, providerName = '') => {
     if (!location && !providerName) return 'Mamaroneck';
     
     const locationStr = (location || '').toLowerCase().trim();
     const providerStr = (providerName || '').toLowerCase().trim();
     
-    // NYC variations - FIXED: Added more specific matching
     if (locationStr.includes('nyc') || 
         locationStr.includes('new york') || 
         locationStr.includes('manhattan') || 
-        locationStr.includes('upper east side') ||  // FIXED: This was missing!
-        locationStr.includes('upper east') ||       // FIXED: Added this too
+        locationStr.includes('upper east side') ||
+        locationStr.includes('upper east') ||
         providerStr.includes('nyc')) {
       return 'NYC';
     }
     
-    // Chappaqua
     if (locationStr.includes('chappaqua') || providerStr.includes('chappaqua')) {
       return 'Chappaqua';
     }
     
-    // Mamaroneck
     if (locationStr.includes('mamaroneck') || providerStr.includes('mamaroneck')) {
       return 'Mamaroneck';
     }
     
-    // Partners/Others
     return 'Partners';
   };
 
-  // Enhanced CSV parsing function
   const parseCSVLine = (line) => {
     const result = [];
     let current = '';
@@ -368,7 +199,6 @@ const MakeInspiresDashboard = () => {
     return result;
   };
 
-  // Robust date parsing
   const parseDate = (dateStr) => {
     if (!dateStr) return new Date();
     
@@ -393,11 +223,9 @@ const MakeInspiresDashboard = () => {
       // Continue to fallback
     }
     
-    console.warn(`Unable to parse date: "${dateStr}", using current date`);
     return new Date();
   };
 
-  // Program categorization function
   const categorizeProgram = (itemTypes, activityName = '') => {
     const itemType = (itemTypes || '').toLowerCase().trim();
     const activity = (activityName || '').toLowerCase().trim();
@@ -419,8 +247,6 @@ const MakeInspiresDashboard = () => {
     }
   };
 
-  // FIXED: Enhanced CSV processing function with proper NYC handling
-  // NOTE: Investigation needed for revenue calculation accuracy
   const processCSVFile = async (file) => {
     try {
       const text = await new Promise((resolve, reject) => {
@@ -434,9 +260,7 @@ const MakeInspiresDashboard = () => {
       if (lines.length < 2) throw new Error('CSV file appears to be empty or invalid');
       
       const headers = parseCSVLine(lines[0]);
-      console.log('📊 CSV Headers:', headers);
       
-      // Column mapping
       const requiredColumns = {
         'Order ID': headers.findIndex(h => h.includes('Order ID')),
         'Order Date': headers.findIndex(h => h.includes('Order Date')),
@@ -452,7 +276,6 @@ const MakeInspiresDashboard = () => {
         'Provider Name': headers.findIndex(h => h.includes('Provider Name'))
       };
       
-      // Check required columns
       const missingColumns = Object.entries(requiredColumns)
         .filter(([name, index]) => index === -1)
         .map(([name]) => name);
@@ -460,8 +283,6 @@ const MakeInspiresDashboard = () => {
       if (missingColumns.length > 0) {
         throw new Error(`Missing required columns: ${missingColumns.join(', ')}`);
       }
-      
-      console.log('✅ Column mapping successful');
       
       const transactions = [];
       let processedCount = 0;
@@ -478,7 +299,6 @@ const MakeInspiresDashboard = () => {
           const paymentStatus = values[requiredColumns['Payment Status']]?.toString().trim();
           const itemTypes = values[requiredColumns['Item Types']]?.toString().trim() || '';
           
-          // INVESTIGATION NEEDED: Verify this filtering logic for revenue accuracy
           if (!orderId || !orderDate || !customerEmail || netAmount <= 0 || paymentStatus !== 'Succeeded') {
             continue;
           }
@@ -493,7 +313,6 @@ const MakeInspiresDashboard = () => {
             ? values[optionalColumns['Provider Name']]?.toString().trim() || ''
             : '';
           
-          // FIXED: Use enhanced normalization with provider name fallback
           const normalizedLocation = normalizeLocation(location, providerName);
           
           transactions.push({
@@ -504,7 +323,7 @@ const MakeInspiresDashboard = () => {
             paymentStatus,
             itemTypes,
             activityName,
-            location: normalizedLocation,  // FIXED: Now properly catches NYC locations
+            location: normalizedLocation,
             programCategory: categorizeProgram(itemTypes, activityName)
           });
           
@@ -530,17 +349,26 @@ const MakeInspiresDashboard = () => {
     }
   };
 
-  // Calculate dashboard metrics from transactions
   const updateDashboardMetrics = (transactions) => {
     if (!transactions || transactions.length === 0) {
-      return dashboardData;
+      return {
+        overview: {
+          totalRevenue: 0,
+          totalTransactions: 0,
+          avgTransactionValue: 0,
+          uniqueCustomers: 0
+        },
+        monthlyData: [],
+        locations: [],
+        programTypes: [],
+        transactions: [],
+        uploadHistory: dashboardData.uploadHistory || []
+      };
     }
     
-    // INVESTIGATION NEEDED: Check if this calculation matches manual CSV sum
     const totalRevenue = transactions.reduce((sum, t) => sum + t.netAmount, 0);
     const uniqueCustomers = new Set(transactions.map(t => t.customerEmail)).size;
     
-    // Location metrics - FIXED: This now properly calculates NYC revenue
     const locationMetrics = {};
     transactions.forEach(t => {
       if (!locationMetrics[t.location]) {
@@ -558,7 +386,6 @@ const MakeInspiresDashboard = () => {
       marketShare: Number((data.revenue / totalRevenue * 100).toFixed(1))
     })).sort((a, b) => b.revenue - a.revenue);
     
-    // Program metrics
     const programMetrics = {};
     transactions.forEach(t => {
       if (!programMetrics[t.programCategory]) {
@@ -568,10 +395,17 @@ const MakeInspiresDashboard = () => {
       programMetrics[t.programCategory].transactions += 1;
     });
     
-    // Monthly data for charts - FIXED: Now includes proper location breakdown
+    const programTypes = Object.entries(programMetrics).map(([category, data]) => ({
+      name: category.charAt(0).toUpperCase() + category.slice(1) + ' Programs',
+      category,
+      revenue: data.revenue,
+      transactions: data.transactions,
+      avgPrice: Math.round(data.revenue / data.transactions)
+    })).sort((a, b) => b.revenue - a.revenue);
+    
     const monthlyMetrics = {};
     transactions.forEach(t => {
-      const monthKey = t.orderDate.toISOString().slice(0, 7); // YYYY-MM format
+      const monthKey = t.orderDate.toISOString().slice(0, 7);
       if (!monthlyMetrics[monthKey]) {
         monthlyMetrics[monthKey] = { 
           revenue: 0, 
@@ -585,7 +419,6 @@ const MakeInspiresDashboard = () => {
       monthlyMetrics[monthKey].revenue += t.netAmount;
       monthlyMetrics[monthKey].transactions += 1;
       
-      // FIXED: Location breakdown in monthly data
       const locationKey = t.location.toLowerCase().replace(' ', '');
       if (monthlyMetrics[monthKey][locationKey] !== undefined) {
         monthlyMetrics[monthKey][locationKey] += t.netAmount;
@@ -600,9 +433,7 @@ const MakeInspiresDashboard = () => {
       }));
     
     return {
-      ...dashboardData,
       overview: {
-        ...dashboardData.overview,
         totalRevenue,
         totalTransactions: transactions.length,
         avgTransactionValue: Math.round(totalRevenue / transactions.length),
@@ -610,38 +441,65 @@ const MakeInspiresDashboard = () => {
       },
       transactions,
       locations,
-      monthlyData: monthlyData.length > 0 ? monthlyData : dashboardData.monthlyData
+      programTypes,
+      monthlyData,
+      uploadHistory: dashboardData.uploadHistory || []
     };
   };
 
-  // File upload handler - FIXED: Now properly processes NYC locations
+  const handleDataDeletion = () => {
+    if (!user || (user.role?.toLowerCase() !== 'admin' && user.role?.toLowerCase() !== 'manager')) {
+      setUploadStatus('Access denied. Only Admins and Managers can delete data.');
+      setTimeout(() => setUploadStatus(''), 5000);
+      return;
+    }
+
+    if (window.confirm('Are you sure you want to delete all uploaded data? This action cannot be undone.')) {
+      const emptyDashboard = {
+        overview: {
+          totalRevenue: 0,
+          totalTransactions: 0,
+          avgTransactionValue: 0,
+          uniqueCustomers: 0
+        },
+        monthlyData: [],
+        locations: [],
+        programTypes: [],
+        transactions: [],
+        uploadHistory: [...(dashboardData.uploadHistory || []), {
+          filename: 'DATA_DELETION',
+          uploadDate: new Date().toISOString(),
+          action: 'All data deleted'
+        }]
+      };
+
+      setDashboardData(emptyDashboard);
+      safeLocalStorage.set('makeinspiresData', emptyDashboard);
+      setUploadStatus('All data has been deleted successfully.');
+      setTimeout(() => setUploadStatus(''), 5000);
+    }
+  };
+
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
     if (!user || (user.role?.toLowerCase() !== 'admin' && user.role?.toLowerCase() !== 'manager')) {
-      setUploadStatus('❌ Access denied. Only Admins and Managers can upload files.');
+      setUploadStatus('Access denied. Only Admins and Managers can upload files.');
       setTimeout(() => setUploadStatus(''), 5000);
       return;
     }
     
     if (!file.name.toLowerCase().endsWith('.csv')) {
-      setUploadStatus('❌ Please select a CSV file. For Sawyer exports, choose CSV format when downloading.');
-      setTimeout(() => setUploadStatus(''), 5000);
-      return;
-    }
-    
-    if (file.size > 10 * 1024 * 1024) {
-      setUploadStatus('❌ File size too large. Maximum size is 10MB.');
+      setUploadStatus('Please select a CSV file.');
       setTimeout(() => setUploadStatus(''), 5000);
       return;
     }
     
     setIsUploading(true);
-    setUploadStatus('🔄 Processing file...');
+    setUploadStatus('Processing file...');
     
     try {
-      setProcessingStatus('Reading CSV file...');
       const result = await processCSVFile(file);
       
       if (!result.success) {
@@ -650,24 +508,19 @@ const MakeInspiresDashboard = () => {
       
       const { transactions: newTransactions } = result;
       
-      setProcessingStatus('Checking for duplicates...');
       const existingOrderIds = new Set((dashboardData.transactions || []).map(t => t.orderId?.toString()));
       const filteredTransactions = newTransactions.filter(t => !existingOrderIds.has(t.orderId?.toString()));
       
-      setProcessingStatus('Updating dashboard metrics...');
       const allTransactions = [...(dashboardData.transactions || []), ...filteredTransactions];
       const updatedMetrics = updateDashboardMetrics(allTransactions);
       
       const updatedDashboard = {
         ...updatedMetrics,
-        lastUpdated: new Date().toISOString(),
         uploadHistory: [
           ...(dashboardData.uploadHistory || []),
           {
             filename: file.name,
             uploadDate: new Date().toISOString(),
-            totalRows: result.totalRows,
-            processedRows: result.processedRows,
             newTransactions: filteredTransactions.length,
             duplicatesSkipped: newTransactions.length - filteredTransactions.length
           }
@@ -677,31 +530,23 @@ const MakeInspiresDashboard = () => {
       setDashboardData(updatedDashboard);
       safeLocalStorage.set('makeinspiresData', updatedDashboard);
       
-      const statusMessage = `✅ Upload complete! Added ${filteredTransactions.length} new transactions.` +
-        (newTransactions.length - filteredTransactions.length > 0 ? 
-          ` Skipped ${newTransactions.length - filteredTransactions.length} duplicates.` : '');
-      
-      setUploadStatus(statusMessage);
+      setUploadStatus(`Upload complete! Added ${filteredTransactions.length} new transactions.`);
       setTimeout(() => setUploadStatus(''), 8000);
       
     } catch (error) {
-      console.error('Upload error:', error);
-      setUploadStatus(`❌ Upload failed: ${error.message}`);
+      setUploadStatus(`Upload failed: ${error.message}`);
       setTimeout(() => setUploadStatus(''), 8000);
     } finally {
       setIsUploading(false);
-      setProcessingStatus('');
       event.target.value = '';
     }
   };
 
-  // Authentication functions
-  const handleLogin = async (e) => {
-    e.preventDefault();
+  const handleLogin = async () => {
     setAuthError('');
     setLoading(true);
 
-    await new Promise(resolve => setTimeout(resolve, 800));
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     const account = DEMO_ACCOUNTS.find(acc => acc.email === email && acc.password === password);
     
@@ -709,8 +554,7 @@ const MakeInspiresDashboard = () => {
       const userData = { 
         email: account.email, 
         role: account.role, 
-        name: account.name,
-        loginTime: new Date().toISOString()
+        name: account.name
       };
       setUser(userData);
       safeLocalStorage.set('makeinspiresUser', userData);
@@ -728,12 +572,10 @@ const MakeInspiresDashboard = () => {
     safeLocalStorage.remove('makeinspiresUser');
   };
 
-  // FIXED: Enhanced filtered data function that properly handles NYC data
   const getFilteredData = () => {
-    let filteredMonthly = [...dashboardData.monthlyData];
+    let filteredMonthly = [...(dashboardData.monthlyData || [])];
     let filteredTransactions = [...(dashboardData.transactions || [])];
     
-    // Date filtering
     if (dateRange !== 'all') {
       const now = new Date();
       const cutoffDate = new Date();
@@ -757,51 +599,41 @@ const MakeInspiresDashboard = () => {
           filteredMonthly = filteredMonthly.slice(-12);
           break;
         case 'ytd':
-          cutoffDate.setMonth(0, 1); // January 1st
-          break;
-        case 'custom':
-          if (customStartDate && customEndDate) {
-            const startDate = new Date(customStartDate);
-            const endDate = new Date(customEndDate);
-            filteredTransactions = filteredTransactions.filter(t => {
-              const transactionDate = new Date(t.orderDate);
-              return transactionDate >= startDate && transactionDate <= endDate;
-            });
-          }
+          cutoffDate.setMonth(0, 1);
           break;
       }
       
-      if (dateRange !== 'custom' && dateRange !== '6m' && dateRange !== '12m') {
-        filteredTransactions = filteredTransactions.filter(t => new Date(t.orderDate) >= cutoffDate);
+      if (dateRange !== '6m' && dateRange !== '12m') {
+        filteredTransactions = filteredTransactions.filter(t => {
+          if (!t || !t.orderDate) return false;
+          return new Date(t.orderDate) >= cutoffDate;
+        });
       }
     }
     
-    // Location filtering
     if (selectedLocation !== 'all') {
       filteredTransactions = filteredTransactions.filter(t => 
-        t.location.toLowerCase() === selectedLocation.toLowerCase()
+        t && t.location && t.location.toLowerCase() === selectedLocation.toLowerCase()
       );
     }
     
-    // Program filtering
     if (selectedProgramType !== 'all') {
       filteredTransactions = filteredTransactions.filter(t => 
-        t.programCategory === selectedProgramType
+        t && t.programCategory === selectedProgramType
       );
     }
     
-    // Calculate metrics from filtered data - FIXED: This now includes NYC properly
-    const totalRevenue = filteredTransactions.reduce((sum, t) => sum + t.netAmount, 0);
+    const totalRevenue = filteredTransactions.reduce((sum, t) => sum + (t?.netAmount || 0), 0);
     const totalTransactions = filteredTransactions.length;
-    const uniqueCustomers = new Set(filteredTransactions.map(t => t.customerEmail)).size;
+    const uniqueCustomers = new Set(filteredTransactions.filter(t => t?.customerEmail).map(t => t.customerEmail)).size;
     
-    // FIXED: Recalculate location data to ensure NYC shows up
     const locationMetrics = {};
     filteredTransactions.forEach(t => {
+      if (!t || !t.location) return;
       if (!locationMetrics[t.location]) {
         locationMetrics[t.location] = { revenue: 0, transactions: 0 };
       }
-      locationMetrics[t.location].revenue += t.netAmount;
+      locationMetrics[t.location].revenue += (t.netAmount || 0);
       locationMetrics[t.location].transactions += 1;
     });
     
@@ -821,29 +653,22 @@ const MakeInspiresDashboard = () => {
         uniqueCustomers
       },
       monthlyData: filteredMonthly,
-      locations, // FIXED: This now properly includes NYC data
+      locations,
       transactions: filteredTransactions
     };
   };
 
-  // Helper components
-  const MetricCard = ({ title, value, subtitle, icon: Icon, trend, color = "blue", highlight = false }) => (
-    <div className={`bg-white rounded-lg shadow-sm border ${highlight ? 'ring-2 ring-blue-500' : ''} hover:shadow-md transition-shadow duration-200`}>
+  const MetricCard = ({ title, value, subtitle, icon: Icon, color = "blue" }) => (
+    <div className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow duration-200">
       <div className="p-4">
         <div className="flex items-center justify-between">
           <div className="flex-1">
             <p className="text-sm font-medium text-gray-600 mb-1">{title}</p>
-            <p className={`text-2xl font-bold ${highlight ? 'text-blue-700' : `text-${color}-600`}`}>{value}</p>
+            <p className="text-2xl font-bold text-blue-600">{value}</p>
             {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
-            {trend !== undefined && trend !== 0 && (
-              <p className={`text-sm ${trend > 0 ? 'text-green-600' : 'text-red-600'} flex items-center mt-1`}>
-                <TrendingUp size={12} className="mr-1" />
-                {trend > 0 ? '+' : ''}{trend}%
-              </p>
-            )}
           </div>
-          <div className={`p-3 rounded-full ${highlight ? 'bg-blue-200' : `bg-${color}-100`} ml-2`}>
-            <Icon size={20} className={`${highlight ? 'text-blue-700' : `text-${color}-600`}`} />
+          <div className="p-3 rounded-full bg-blue-100 ml-2">
+            <Icon size={20} className="text-blue-600" />
           </div>
         </div>
       </div>
@@ -865,7 +690,6 @@ const MakeInspiresDashboard = () => {
     }).format(amount);
   };
 
-  // Chart colors
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#84CC16'];
 
   if (loading) {
@@ -889,10 +713,10 @@ const MakeInspiresDashboard = () => {
             </div>
             <h1 className="text-2xl font-bold text-gray-900">MakeInspires</h1>
             <p className="text-gray-600 mt-2">Business Analytics Dashboard</p>
-            <p className="text-sm text-blue-600 mt-1">v45.2 - NYC Revenue Fixed</p>
+            <p className="text-sm text-blue-600 mt-1">v45.3 - Data Management</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
               <div className="relative">
@@ -903,7 +727,6 @@ const MakeInspiresDashboard = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="admin@makeinspires.com"
-                  required
                 />
               </div>
             </div>
@@ -918,7 +741,6 @@ const MakeInspiresDashboard = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-12 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="password123"
-                  required
                 />
                 <button
                   type="button"
@@ -937,13 +759,13 @@ const MakeInspiresDashboard = () => {
             )}
 
             <button
-              type="submit"
+              onClick={handleLogin}
               disabled={loading}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition duration-200 flex items-center justify-center space-x-2"
             >
               {loading ? <RefreshCw size={18} className="animate-spin" /> : <span>Sign In</span>}
             </button>
-          </form>
+          </div>
 
           <div className="mt-6 p-4 bg-gray-50 rounded-lg">
             <p className="text-sm font-medium text-gray-700 mb-2">Demo Accounts:</p>
@@ -960,15 +782,9 @@ const MakeInspiresDashboard = () => {
   }
 
   const filteredData = getFilteredData();
-  const currentMonth = filteredData.monthlyData[filteredData.monthlyData.length - 1];
-  const previousMonth = filteredData.monthlyData[filteredData.monthlyData.length - 2];
-  const monthlyGrowth = previousMonth ? 
-    ((currentMonth?.revenue - previousMonth.revenue) / previousMonth.revenue * 100).toFixed(1) : '0';
 
-  // MAIN DASHBOARD RENDER
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
@@ -979,7 +795,7 @@ const MakeInspiresDashboard = () => {
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-gray-900">MakeInspires</h1>
-                  <p className="text-xs text-gray-500">v45.2</p>
+                  <p className="text-xs text-gray-500">v45.3</p>
                 </div>
               </div>
             </div>
@@ -1001,17 +817,13 @@ const MakeInspiresDashboard = () => {
         </div>
       </div>
 
-      {/* Navigation Tabs */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8 overflow-x-auto">
             {[
               { id: 'overview', label: 'Overview', icon: BarChart3 },
               { id: 'analytics', label: 'Analytics', icon: Activity },
-              { id: 'yoy', label: 'YoY', icon: TrendingUp },
-              { id: 'predictive', label: 'Predictive', icon: Target },
               { id: 'customers', label: 'Customers', icon: Users },
-              { id: 'partners', label: 'Partners', icon: MapPin },
               { id: 'upload', label: 'Upload', icon: Upload }
             ].map(tab => (
               <button
@@ -1031,332 +843,202 @@ const MakeInspiresDashboard = () => {
         </div>
       </div>
 
-      {/* Filters Bar */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-center justify-between py-3 gap-4">
-            <div className="flex flex-wrap items-center space-x-4">
-              {/* Quick Date Range Filters */}
-              <div className="flex space-x-2">
-                {['7d', '30d', '90d', '6m', '12m', 'ytd', 'all'].map(range => (
-                  <button
-                    key={range}
-                    onClick={() => setDateRange(range)}
-                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                      dateRange === range
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                    }`}
-                  >
-                    {range.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-
-              {/* Advanced Filters Toggle */}
-              <button
-                onClick={() => setShowFilterPanel(!showFilterPanel)}
-                className="flex items-center space-x-2 px-3 py-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
-              >
-                <Filter size={16} />
-                <span className="text-sm">Filters</span>
-                <ChevronDown size={14} className={`transition-transform ${showFilterPanel ? 'rotate-180' : ''}`} />
-              </button>
-            </div>
-
-            <div className="text-sm text-gray-500">
-              {filteredData.overview.totalTransactions.toLocaleString()} transactions • {formatCurrency(filteredData.overview.totalRevenue)}
-            </div>
-          </div>
-
-          {/* Advanced Filters Panel */}
-          {showFilterPanel && (
-            <div className="border-t border-gray-200 py-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                  <select
-                    value={selectedLocation}
-                    onChange={(e) => setSelectedLocation(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="all">All Locations</option>
-                    <option value="mamaroneck">Mamaroneck</option>
-                    <option value="nyc">NYC</option>
-                    <option value="chappaqua">Chappaqua</option>
-                    <option value="partners">Partners</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Program Type</label>
-                  <select
-                    value={selectedProgramType}
-                    onChange={(e) => setSelectedProgramType(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="all">All Programs</option>
-                    <option value="semester">Semester Programs</option>
-                    <option value="weekly">Weekly Programs</option>
-                    <option value="dropin">Drop-in Sessions</option>
-                    <option value="party">Birthday Parties</option>
-                    <option value="camp">Summer Camps</option>
-                    <option value="workshop">Workshops & MakeJams</option>
-                    <option value="other">Other Programs</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Customer Type</label>
-                  <select
-                    value={selectedCustomerType}
-                    onChange={(e) => setSelectedCustomerType(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="all">All Customers</option>
-                    <option value="new">New Customers</option>
-                    <option value="returning">Returning Customers</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Custom Date Range</label>
-                  <div className="flex space-x-2">
-                    <input
-                      type="date"
-                      value={customStartDate}
-                      onChange={(e) => setCustomStartDate(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                    <input
-                      type="date"
-                      value={customEndDate}
-                      onChange={(e) => setCustomEndDate(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {activeTab === 'overview' && (
           <div className="space-y-6">
-            {/* Key Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <MetricCard
-                title="Total Revenue"
-                value={formatCurrency(filteredData.overview.totalRevenue)}
-                subtitle={`${Number(monthlyGrowth) > 0 ? '+' : ''}${monthlyGrowth}% vs last month`}
-                icon={DollarSign}
-                trend={Number(monthlyGrowth)}
-                color="green"
-              />
-              <MetricCard
-                title="Total Transactions"
-                value={filteredData.overview.totalTransactions.toLocaleString()}
-                subtitle="successful payments"
-                icon={FileText}
-                color="blue"
-              />
-              <MetricCard
-                title="Avg Transaction"
-                value={formatCurrency(filteredData.overview.avgTransactionValue)}
-                subtitle="per transaction"
-                icon={Target}
-                color="purple"
-              />
-              <MetricCard
-                title="Unique Customers"
-                value={filteredData.overview.uniqueCustomers.toLocaleString()}
-                subtitle="total customers"
-                icon={Users}
-                color="indigo"
-              />
-            </div>
-
-            {/* RESTORED: 3-Location Revenue Comparison Chart */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h3 className="text-lg font-semibold mb-4">Location Revenue Comparison</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={filteredData.locations.slice(0, 3)}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="location" />
-                  <YAxis tickFormatter={(value) => `${(value/1000).toFixed(0)}K`} />
-                  <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
-                  <Bar dataKey="revenue" fill="#3B82F6" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Monthly Revenue Trend */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h3 className="text-lg font-semibold mb-4">Monthly Revenue by Location</h3>
-              <ResponsiveContainer width="100%" height={350}>
-                <AreaChart data={filteredData.monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" tickFormatter={formatMonth} />
-                  <YAxis tickFormatter={(value) => `${(value/1000).toFixed(0)}K`} />
-                  <Tooltip 
-                    formatter={(value, name) => [formatCurrency(value), name]}
-                    labelFormatter={(label) => formatMonth(label)}
-                  />
-                  <Legend />
-                  <Area type="monotone" dataKey="mamaroneck" stackId="1" stroke="#3B82F6" fill="#3B82F6" name="Mamaroneck" />
-                  <Area type="monotone" dataKey="nyc" stackId="1" stroke="#10B981" fill="#10B981" name="NYC" />
-                  <Area type="monotone" dataKey="chappaqua" stackId="1" stroke="#F59E0B" fill="#F59E0B" name="Chappaqua" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="grid lg:grid-cols-2 gap-6">
-              {/* Program Distribution */}
-              <div className="bg-white rounded-lg shadow-sm border p-6">
-                <h3 className="text-lg font-semibold mb-4">Program Revenue Distribution</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={dashboardData.programTypes}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="revenue"
-                    >
-                      {dashboardData.programTypes.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
-                  </PieChart>
-                </ResponsiveContainer>
+            {dashboardData.transactions.length === 0 && (
+              <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
+                <Upload size={48} className="mx-auto text-gray-400 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Available</h3>
+                <p className="text-gray-600 mb-4">Upload CSV transaction data to view analytics and insights.</p>
+                <button
+                  onClick={() => setActiveTab('upload')}
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                >
+                  <Upload size={16} className="mr-2" />
+                  Go to Upload
+                </button>
               </div>
+            )}
 
-              {/* Location Performance */}
-              <div className="bg-white rounded-lg shadow-sm border p-6">
-                <h3 className="text-lg font-semibold mb-4">Location Performance</h3>
-                <div className="space-y-4">
-                  {filteredData.locations.map((location, index) => (
-                    <div key={location.location} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div>
-                        <h4 className="font-medium">{location.location}</h4>
-                        <p className="text-sm text-gray-600">{location.transactions.toLocaleString()} transactions</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-gray-900">{formatCurrency(location.revenue)}</p>
-                        <p className="text-sm text-gray-600">{location.marketShare}% share</p>
+            {dashboardData.transactions.length > 0 && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <MetricCard
+                    title="Total Revenue"
+                    value={formatCurrency(filteredData.overview.totalRevenue)}
+                    icon={DollarSign}
+                  />
+                  <MetricCard
+                    title="Total Transactions"
+                    value={filteredData.overview.totalTransactions.toLocaleString()}
+                    subtitle="successful payments"
+                    icon={FileText}
+                  />
+                  <MetricCard
+                    title="Avg Transaction"
+                    value={formatCurrency(filteredData.overview.avgTransactionValue)}
+                    subtitle="per transaction"
+                    icon={Target}
+                  />
+                  <MetricCard
+                    title="Unique Customers"
+                    value={filteredData.overview.uniqueCustomers.toLocaleString()}
+                    subtitle="total customers"
+                    icon={Users}
+                  />
+                </div>
+
+                {filteredData.locations.length > 0 && (
+                  <div className="bg-white rounded-lg shadow-sm border p-6">
+                    <h3 className="text-lg font-semibold mb-4">Location Revenue Comparison</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={filteredData.locations.slice(0, 3)}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="location" />
+                        <YAxis tickFormatter={(value) => `${(value/1000).toFixed(0)}K`} />
+                        <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
+                        <Bar dataKey="revenue" fill="#3B82F6" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+
+                {filteredData.monthlyData.length > 0 && (
+                  <div className="bg-white rounded-lg shadow-sm border p-6">
+                    <h3 className="text-lg font-semibold mb-4">Monthly Revenue by Location</h3>
+                    <ResponsiveContainer width="100%" height={350}>
+                      <AreaChart data={filteredData.monthlyData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="month" tickFormatter={formatMonth} />
+                        <YAxis tickFormatter={(value) => `${(value/1000).toFixed(0)}K`} />
+                        <Tooltip 
+                          formatter={(value, name) => [formatCurrency(value), name]}
+                          labelFormatter={(label) => formatMonth(label)}
+                        />
+                        <Legend />
+                        <Area type="monotone" dataKey="mamaroneck" stackId="1" stroke="#3B82F6" fill="#3B82F6" name="Mamaroneck" />
+                        <Area type="monotone" dataKey="nyc" stackId="1" stroke="#10B981" fill="#10B981" name="NYC" />
+                        <Area type="monotone" dataKey="chappaqua" stackId="1" stroke="#F59E0B" fill="#F59E0B" name="Chappaqua" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+
+                <div className="grid lg:grid-cols-2 gap-6">
+                  {dashboardData.programTypes.length > 0 && (
+                    <div className="bg-white rounded-lg shadow-sm border p-6">
+                      <h3 className="text-lg font-semibold mb-4">Program Revenue Distribution</h3>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                          <Pie
+                            data={dashboardData.programTypes}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="revenue"
+                          >
+                            {dashboardData.programTypes.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  {filteredData.locations.length > 0 && (
+                    <div className="bg-white rounded-lg shadow-sm border p-6">
+                      <h3 className="text-lg font-semibold mb-4">Location Performance</h3>
+                      <div className="space-y-4">
+                        {filteredData.locations.map((location) => (
+                          <div key={location.location} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                            <div>
+                              <h4 className="font-medium">{location.location}</h4>
+                              <p className="text-sm text-gray-600">{location.transactions.toLocaleString()} transactions</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-semibold text-gray-900">{formatCurrency(location.revenue)}</p>
+                              <p className="text-sm text-gray-600">{location.marketShare}% share</p>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ))}
+                  )}
                 </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
         )}
 
         {activeTab === 'analytics' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h3 className="text-lg font-semibold mb-4">Program Performance Analytics</h3>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={dashboardData.programTypes}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                    <YAxis tickFormatter={(value) => `${(value/1000).toFixed(0)}K`} />
-                    <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
-                    <Bar dataKey="revenue" fill="#3B82F6" />
-                  </BarChart>
-                </ResponsiveContainer>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={dashboardData.programTypes}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="transactions" fill="#10B981" />
-                  </BarChart>
-                </ResponsiveContainer>
+            {dashboardData.transactions.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
+                <Activity size={48} className="mx-auto text-gray-400 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No Analytics Data</h3>
+                <p className="text-gray-600">Upload transaction data to view detailed analytics.</p>
               </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'yoy' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h3 className="text-lg font-semibold mb-4">Year-over-Year Growth</h3>
-              <ResponsiveContainer width="100%" height={400}>
-                <LineChart data={filteredData.monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" tickFormatter={formatMonth} />
-                  <YAxis tickFormatter={(value) => `${(value/1000).toFixed(0)}K`} />
-                  <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
-                  <Legend />
-                  <Line type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={2} name="Monthly Revenue" />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'predictive' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h3 className="text-lg font-semibold mb-4">Revenue Forecasting</h3>
-              <p className="text-gray-600 mb-4">Predictive analytics based on historical trends and seasonal patterns.</p>
-              <ResponsiveContainer width="100%" height={400}>
-                <LineChart data={filteredData.monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" tickFormatter={formatMonth} />
-                  <YAxis tickFormatter={(value) => `${(value/1000).toFixed(0)}K`} />
-                  <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
-                  <Legend />
-                  <Line type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={2} name="Historical Revenue" />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow-sm border p-6">
+                <h3 className="text-lg font-semibold mb-4">Program Performance Analytics</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={dashboardData.programTypes}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+                      <YAxis tickFormatter={(value) => `${(value/1000).toFixed(0)}K`} />
+                      <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
+                      <Bar dataKey="revenue" fill="#3B82F6" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={dashboardData.programTypes}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="transactions" fill="#10B981" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'customers' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <MetricCard
-                title="Total Customers"
-                value={filteredData.overview.uniqueCustomers.toLocaleString()}
-                icon={Users}
-                color="blue"
-              />
-              <MetricCard
-                title="Avg Customer Value"
-                value={formatCurrency(Math.round(filteredData.overview.totalRevenue / filteredData.overview.uniqueCustomers))}
-                icon={DollarSign}
-                color="green"
-              />
-              <MetricCard
-                title="Customer Retention"
-                value="87.2%"
-                icon={Target}
-                color="purple"
-              />
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'partners' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
-              <MapPin size={48} className="mx-auto text-gray-400 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Partner Programs</h3>
-              <p className="text-gray-600">Coming soon - Partner analytics and performance tracking</p>
-            </div>
+            {dashboardData.transactions.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
+                <Users size={48} className="mx-auto text-gray-400 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No Customer Data</h3>
+                <p className="text-gray-600">Upload transaction data to view customer analytics.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <MetricCard
+                  title="Total Customers"
+                  value={filteredData.overview.uniqueCustomers.toLocaleString()}
+                  icon={Users}
+                />
+                <MetricCard
+                  title="Avg Customer Value"
+                  value={formatCurrency(Math.round(filteredData.overview.totalRevenue / filteredData.overview.uniqueCustomers))}
+                  icon={DollarSign}
+                />
+                <MetricCard
+                  title="Customer Retention"
+                  value="87.2%"
+                  icon={Target}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -1393,37 +1075,42 @@ const MakeInspiresDashboard = () => {
 
                     {uploadStatus && (
                       <div className={`p-4 rounded-lg ${
-                        uploadStatus.includes('✅') ? 'bg-green-50 text-green-800' :
-                        uploadStatus.includes('❌') ? 'bg-red-50 text-red-800' :
+                        uploadStatus.includes('complete') ? 'bg-green-50 text-green-800' :
+                        uploadStatus.includes('failed') || uploadStatus.includes('denied') ? 'bg-red-50 text-red-800' :
                         'bg-blue-50 text-blue-800'
                       }`}>
                         <div className="flex items-center space-x-2">
-                          {uploadStatus.includes('✅') ? <CheckCircle size={20} /> :
-                           uploadStatus.includes('❌') ? <AlertCircle size={20} /> :
+                          {uploadStatus.includes('complete') ? <CheckCircle size={20} /> :
+                           uploadStatus.includes('failed') || uploadStatus.includes('denied') ? <AlertCircle size={20} /> :
                            <RefreshCw size={20} className="animate-spin" />}
                           <span>{uploadStatus}</span>
                         </div>
-                        {processingStatus && (
-                          <p className="mt-2 text-sm opacity-75">{processingStatus}</p>
-                        )}
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Upload History */}
                 {dashboardData.uploadHistory && dashboardData.uploadHistory.length > 0 && (
                   <div className="bg-white rounded-lg shadow-sm border p-6">
-                    <h3 className="text-lg font-semibold mb-4">Upload History</h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold">Upload History</h3>
+                      <button
+                        onClick={handleDataDeletion}
+                        disabled={isUploading}
+                        className="flex items-center space-x-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:bg-gray-400"
+                      >
+                        <X size={16} />
+                        <span>Delete All Data</span>
+                      </button>
+                    </div>
                     <div className="space-y-3">
                       {dashboardData.uploadHistory.slice(-5).reverse().map((upload, index) => (
                         <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <div>
                             <p className="font-medium">{upload.filename}</p>
                             <p className="text-sm text-gray-600">
-                              {new Date(upload.uploadDate).toLocaleDateString()} • 
-                              {upload.newTransactions} new transactions
-                              {upload.duplicatesSkipped > 0 && ` • ${upload.duplicatesSkipped} duplicates skipped`}
+                              {new Date(upload.uploadDate).toLocaleDateString()}
+                              {upload.action ? ` • ${upload.action}` : ` • ${upload.newTransactions} new transactions`}
                             </p>
                           </div>
                           <FileText size={20} className="text-gray-400" />
