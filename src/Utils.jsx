@@ -466,3 +466,8 @@ export const calculateGrowth = (current, previous) => {
   if (!previous || previous === 0) return 0;
   return Math.round(((current - previous) / previous) * 100);
 };
+
+// Chart colors for visualizations
+export const CHART_COLORS = [
+  '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4'
+];
