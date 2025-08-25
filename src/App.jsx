@@ -40,7 +40,7 @@ const MakeInspiresDashboard = () => {
   const [uploadHistory, setUploadHistory] = useState([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Initialize dashboard data
+  // Initialize dashboard data with proper error handling
   const [dashboardData, setDashboardData] = useState({
     transactions: [],
     lastUpdated: null,
@@ -48,15 +48,26 @@ const MakeInspiresDashboard = () => {
     dataStats: { totalTransactions: 0, totalRevenue: 0, uniqueCustomers: 0, locationCount: 0 }
   });
 
+  // Safe useEffect with error handling
   useEffect(() => {
-    const savedUser = localStorage.getItem('makeinspiresUser');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    
-    const savedData = localStorage.getItem('makeinspiresData');
-    if (savedData) {
-      setDashboardData(JSON.parse(savedData));
+    try {
+      const savedUser = localStorage.getItem('makeinspiresUser');
+      if (savedUser) {
+        setUser(JSON.parse(savedUser));
+      }
+      
+      const savedData = localStorage.getItem('makeinspiresData');
+      if (savedData) {
+        setDashboardData(JSON.parse(savedData));
+      }
+      
+      const savedHistory = localStorage.getItem('makeinspiresUploadHistory');
+      if (savedHistory) {
+        setUploadHistory(JSON.parse(savedHistory));
+      }
+    } catch (error) {
+      console.error('Error loading saved data:', error);
+      // Continue with defaults if there's an error
     }
   }, []);
 
@@ -530,45 +541,93 @@ const MakeInspiresDashboard = () => {
     }
   };
 
-  // Data filtering functions
+  // Data filtering functions with error handling
   const getFilteredData = () => {
-    if (!dashboardData.transactions || dashboardData.transactions.length === 0) {
-      return dashboardData;
-    }
-    
-    let filteredTransactions = dashboardData.transactions;
-    
-    // Date filtering
-    if (dateFilter !== 'all') {
-      const now = new Date();
-      let cutoffDate = new Date();
-      
-      switch (dateFilter) {
-        case '3m':
-          cutoffDate.setMonth(now.getMonth() - 3);
-          break;
-        case '6m':
-          cutoffDate.setMonth(now.getMonth() - 6);
-          break;
-        case '12m':
-          cutoffDate.setFullYear(now.getFullYear() - 1);
-          break;
+    try {
+      if (!dashboardData.transactions || dashboardData.transactions.length === 0) {
+        return {
+          overview: {
+            totalRevenue: 0,
+            totalTransactions: 0,
+            uniqueCustomers: 0,
+            avgTransactionValue: 0,
+            repeatCustomerRate: 0,
+            avgRevenuePerFamily: 0
+          },
+          programTypes: [],
+          locations: [],
+          monthlyTrends: [],
+          transactions: [],
+          lastUpdated: null,
+          dataStats: { totalTransactions: 0, totalRevenue: 0, uniqueCustomers: 0, locationCount: 0 }
+        };
       }
       
-      filteredTransactions = filteredTransactions.filter(t => new Date(t.orderDate) >= cutoffDate);
+      let filteredTransactions = [...dashboardData.transactions];
+      
+      // Date filtering
+      if (dateFilter !== 'all') {
+        const now = new Date();
+        let cutoffDate = new Date();
+        
+        switch (dateFilter) {
+          case '3m':
+            cutoffDate.setMonth(now.getMonth() - 3);
+            break;
+          case '6m':
+            cutoffDate.setMonth(now.getMonth() - 6);
+            break;
+          case '12m':
+            cutoffDate.setFullYear(now.getFullYear() - 1);
+            break;
+          default:
+            break;
+        }
+        
+        filteredTransactions = filteredTransactions.filter(t => {
+          const orderDate = new Date(t.orderDate);
+          return orderDate >= cutoffDate;
+        });
+      }
+      
+      // Location filtering
+      if (locationFilter !== 'all') {
+        filteredTransactions = filteredTransactions.filter(t => 
+          t.location && t.location.toLowerCase().includes(locationFilter.toLowerCase())
+        );
+      }
+      
+      return updateDashboardMetrics(filteredTransactions);
+    } catch (error) {
+      console.error('Error filtering data:', error);
+      return dashboardData;
     }
-    
-    // Location filtering
-    if (locationFilter !== 'all') {
-      filteredTransactions = filteredTransactions.filter(t => 
-        t.location.toLowerCase().includes(locationFilter.toLowerCase())
-      );
-    }
-    
-    return updateDashboardMetrics(filteredTransactions);
   };
 
-  const filteredData = useMemo(() => getFilteredData(), [dashboardData, dateFilter, locationFilter]);
+  // Safe memoized filtered data
+  const filteredData = useMemo(() => {
+    try {
+      return getFilteredData();
+    } catch (error) {
+      console.error('Error in filteredData memo:', error);
+      return {
+        overview: {
+          totalRevenue: 0,
+          totalTransactions: 0,
+          uniqueCustomers: 0,
+          avgTransactionValue: 0,
+          repeatCustomerRate: 0,
+          avgRevenuePerFamily: 0
+        },
+        programTypes: [],
+        locations: [],
+        monthlyTrends: [],
+        transactions: [],
+        lastUpdated: null,
+        dataStats: { totalTransactions: 0, totalRevenue: 0, uniqueCustomers: 0, locationCount: 0 }
+      };
+    }
+  }, [dashboardData, dateFilter, locationFilter]);
 
   // Delete all data function (Admin only)
   const handleDeleteAllData = () => {
