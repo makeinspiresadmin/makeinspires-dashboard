@@ -155,7 +155,7 @@ const MakeInspiresDashboard = () => {
           <div className="text-center mb-8">
             <MakeInspiresLogo size={64} />
             <h1 className="text-2xl font-bold text-gray-900 mt-4">MakeInspires Dashboard</h1>
-            <p className="text-sm text-gray-600 mt-1">v45.3 - Revenue Fix</p>
+            <p className="text-sm text-gray-600 mt-1">v45.33</p>
           </div>
           
           <form onSubmit={handleLogin} className="space-y-4">
@@ -242,7 +242,7 @@ const MakeInspiresDashboard = () => {
               <MakeInspiresLogo />
               <div>
                 <h1 className="text-xl font-bold text-gray-900">MakeInspires Analytics</h1>
-                <p className="text-xs text-gray-500">v45.3 - Revenue Fix</p>
+                <p className="text-xs text-gray-500">v45.33</p>
               </div>
             </div>
             
