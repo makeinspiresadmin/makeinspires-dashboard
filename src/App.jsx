@@ -288,3 +288,138 @@ const MakeInspiresDashboard = () => {
           <div className="flex flex-wrap items-center gap-4">
             {/* Date Range Filter */}
             <select
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value)}
+              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">All Time</option>
+              <option value="7d">Last 7 Days</option>
+              <option value="30d">Last 30 Days</option>
+              <option value="90d">Last 90 Days</option>
+              <option value="6m">Last 6 Months</option>
+              <option value="12m">Last 12 Months</option>
+              <option value="ytd">Year to Date</option>
+            </select>
+            
+            {/* Location Filter */}
+            <select
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">All Locations</option>
+              <option value="Mamaroneck">Mamaroneck</option>
+              <option value="NYC">NYC</option>
+              <option value="Chappaqua">Chappaqua</option>
+              <option value="Partners">Partners</option>
+            </select>
+            
+            {/* Program Type Filter */}
+            <select
+              value={programType}
+              onChange={(e) => setProgramType(e.target.value)}
+              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">All Programs</option>
+              <option value="Semester Programs">Semester</option>
+              <option value="Weekly Classes">Weekly</option>
+              <option value="Drop-in Sessions">Drop-in</option>
+              <option value="Birthday Parties">Parties</option>
+              <option value="Camps & Intensives">Camps</option>
+              <option value="Workshops & MakeJams">Workshops</option>
+              <option value="Package Deals">Packages</option>
+            </select>
+            
+            {/* Advanced Filters Toggle */}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center space-x-1 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900"
+            >
+              <span>Advanced Filters</span>
+              <ChevronDown className={`transition-transform ${showFilters ? 'rotate-180' : ''}`} size={16} />
+            </button>
+            
+            {/* Active Filter Count */}
+            {(dateRange !== 'all' || location !== 'all' || programType !== 'all') && (
+              <div className="flex items-center space-x-2 px-3 py-1 bg-blue-50 rounded-lg">
+                <span className="text-sm text-blue-700">
+                  {[dateRange !== 'all', location !== 'all', programType !== 'all'].filter(Boolean).length} filters active
+                </span>
+                <button
+                  onClick={() => {
+                    setDateRange('all');
+                    setLocation('all');
+                    setProgramType('all');
+                  }}
+                  className="text-blue-600 hover:text-blue-800"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+          
+          {/* Advanced Filters Panel */}
+          {showFilters && (
+            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Customer Type
+                  </label>
+                  <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option>All Customers</option>
+                    <option>New Customers</option>
+                    <option>Returning Customers</option>
+                    <option>VIP Customers</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Payment Status
+                  </label>
+                  <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option>All Payments</option>
+                    <option>Succeeded</option>
+                    <option>Pending</option>
+                    <option>Refunded</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Revenue Range
+                  </label>
+                  <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option>All Amounts</option>
+                    <option>$0 - $100</option>
+                    <option>$100 - $500</option>
+                    <option>$500 - $1000</option>
+                    <option>$1000+</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <DashboardTabs
+          activeTab={activeTab}
+          dashboardData={filteredData}
+          setDashboardData={setDashboardData}
+          uploadStatus={uploadStatus}
+          setUploadStatus={setUploadStatus}
+          user={user}
+          dateRange={dateRange}
+          location={location}
+          programType={programType}
+        />
+      </main>
+    </div>
+  );
+};
+
+// Export the component
+export default MakeInspiresDashboard;
