@@ -1,7 +1,12 @@
 /**
- * App.jsx - MakeInspires Dashboard v45.3
+ * App.jsx - MakeInspires Dashboard v45.4
  * Main application file with authentication, layout, and state management
  * Split from monolithic file for better maintainability
+ * 
+ * CHANGELOG v45.4:
+ * - Added custom date range filtering with start/end date selection
+ * - Added data source date range display next to version number
+ * - Enhanced date filtering logic in filterTransactions
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -42,6 +47,10 @@ const MakeInspiresDashboard = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
   
+  // Custom date range state (NEW in v45.4)
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+  
   // Data state - starts empty (no sample data)
   const [dashboardData, setDashboardData] = useState({
     transactions: [],
@@ -60,6 +69,26 @@ const MakeInspiresDashboard = () => {
     lastUpdated: new Date().toISOString()
   });
   
+  // Calculate data source date range (NEW in v45.4)
+  const dataSourceDateRange = useMemo(() => {
+    if (!dashboardData.transactions || dashboardData.transactions.length === 0) {
+      return null;
+    }
+    
+    const dates = dashboardData.transactions.map(t => new Date(t.orderDate));
+    const minDate = new Date(Math.min(...dates));
+    const maxDate = new Date(Math.max(...dates));
+    
+    const formatDate = (date) => {
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const year = String(date.getFullYear()).slice(-2);
+      return `${month}/${day}/${year}`;
+    };
+    
+    return `${formatDate(minDate)}-${formatDate(maxDate)}`;
+  }, [dashboardData.transactions]);
+  
   // Load user session on mount
   useEffect(() => {
     const savedUser = localStorage.getItem('makeinspiresUser');
@@ -68,73 +97,84 @@ const MakeInspiresDashboard = () => {
         setUser(JSON.parse(savedUser));
       } catch (e) {
         console.error('Error loading user session:', e);
-        localStorage.removeItem('makeinspiresUser');
+      }
+    }
+    
+    // Load saved data
+    const savedData = localStorage.getItem('makeinspiresData');
+    if (savedData) {
+      try {
+        setDashboardData(JSON.parse(savedData));
+      } catch (e) {
+        console.error('Error loading dashboard data:', e);
       }
     }
   }, []);
   
-  // Handle login
+  // Save data when it changes
+  useEffect(() => {
+    if (dashboardData.transactions.length > 0) {
+      localStorage.setItem('makeinspiresData', JSON.stringify(dashboardData));
+    }
+  }, [dashboardData]);
+  
+  // Authentication handlers
   const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setAuthError('');
     
-    // Demo authentication
-    const users = [
-      { email: 'admin@makeinspires.com', password: 'password123', role: 'admin', name: 'Admin User' },
-      { email: 'manager@makeinspires.com', password: 'password123', role: 'manager', name: 'Manager User' },
-      { email: 'viewer@makeinspires.com', password: 'password123', role: 'viewer', name: 'Viewer User' }
-    ];
+    // Demo accounts
+    const validUsers = {
+      'admin@makeinspires.com': { password: 'password123', role: 'admin', name: 'Admin User' },
+      'manager@makeinspires.com': { password: 'password123', role: 'manager', name: 'Manager User' },
+      'viewer@makeinspires.com': { password: 'password123', role: 'viewer', name: 'Viewer User' }
+    };
     
-    const foundUser = users.find(u => 
-      u.email.toLowerCase() === email.toLowerCase() && 
-      u.password === password
-    );
+    const normalizedEmail = email.toLowerCase().trim();
+    const userAccount = validUsers[normalizedEmail];
     
     setTimeout(() => {
-      if (foundUser) {
+      if (userAccount && password === userAccount.password) {
         const userData = {
-          email: foundUser.email,
-          role: foundUser.role,
-          name: foundUser.name
+          email: normalizedEmail,
+          role: userAccount.role,
+          name: userAccount.name
         };
         setUser(userData);
         localStorage.setItem('makeinspiresUser', JSON.stringify(userData));
         setEmail('');
         setPassword('');
       } else {
-        setAuthError('Invalid email or password. Please try again.');
+        setAuthError('Invalid email or password');
       }
       setIsLoading(false);
-    }, 1000);
+    }, 500);
   };
   
-  // Handle logout
   const handleLogout = () => {
     setUser(null);
     localStorage.removeItem('makeinspiresUser');
-    setActiveTab('overview');
   };
   
-  // Filter data based on current filters
+  // Enhanced filtering with custom date range (UPDATED in v45.4)
   const filteredData = useMemo(() => {
-    if (!dashboardData.transactions || dashboardData.transactions.length === 0) {
-      return dashboardData;
-    }
-    
-    const filtered = filterTransactions(dashboardData.transactions, {
+    const filters = {
       dateRange,
+      customStartDate: dateRange === 'custom' ? customStartDate : null,
+      customEndDate: dateRange === 'custom' ? customEndDate : null,
       location: location === 'all' ? null : location,
       programType: programType === 'all' ? null : programType
-    });
+    };
     
+    const filtered = filterTransactions(dashboardData.transactions, filters);
     const metrics = calculateMetrics(filtered);
     
     return {
       ...dashboardData,
       ...metrics
     };
-  }, [dashboardData.transactions, dateRange, location, programType]);
+  }, [dashboardData.transactions, dateRange, location, programType, customStartDate, customEndDate]);
   
   // Tab configuration
   const tabs = [
@@ -155,7 +195,7 @@ const MakeInspiresDashboard = () => {
           <div className="text-center mb-8">
             <MakeInspiresLogo size={64} />
             <h1 className="text-2xl font-bold text-gray-900 mt-4">MakeInspires Dashboard</h1>
-            <p className="text-sm text-gray-600 mt-1">v45.33</p>
+            <p className="text-sm text-gray-600 mt-1">v45.4 - Date Range Features</p>
           </div>
           
           <form onSubmit={handleLogin} className="space-y-4">
@@ -183,7 +223,7 @@ const MakeInspiresDashboard = () => {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                 <input
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -201,29 +241,24 @@ const MakeInspiresDashboard = () => {
             </div>
             
             {authError && (
-              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-2 rounded-lg text-sm">
-                {authError}
-              </div>
+              <div className="text-red-600 text-sm text-center">{authError}</div>
             )}
             
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
             >
-              {isLoading ? (
-                <RefreshCw className="animate-spin mr-2" size={18} />
-              ) : null}
               {isLoading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
           
-          <div className="mt-6 text-center text-sm text-gray-500">
-            <p className="font-medium mb-2">Demo Accounts:</p>
-            <div className="space-y-1">
-              <p><code>admin@makeinspires.com</code> / <code>password123</code></p>
-              <p><code>manager@makeinspires.com</code> / <code>password123</code></p>
-              <p><code>viewer@makeinspires.com</code> / <code>password123</code></p>
+          <div className="mt-6 pt-6 border-t">
+            <p className="text-xs text-gray-500 text-center mb-2">Demo Credentials:</p>
+            <div className="text-xs text-gray-400 space-y-1 text-center">
+              <div>admin@makeinspires.com / password123</div>
+              <div>manager@makeinspires.com / password123</div>
+              <div>viewer@makeinspires.com / password123</div>
             </div>
           </div>
         </div>
@@ -231,26 +266,34 @@ const MakeInspiresDashboard = () => {
     );
   }
   
-  // Main Dashboard Layout
+  // Main dashboard
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
-              <MakeInspiresLogo />
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-4">
+              <MakeInspiresLogo size={40} />
               <div>
                 <h1 className="text-xl font-bold text-gray-900">MakeInspires Analytics</h1>
-                <p className="text-xs text-gray-500">v45.33</p>
+                <div className="flex items-center space-x-2 text-xs text-gray-500">
+                  <span>v45.4</span>
+                  {dataSourceDateRange && (
+                    <>
+                      <span>•</span>
+                      <span>Data Sources: {dataSourceDateRange}</span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
             
             <div className="flex items-center space-x-4">
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                <p className="text-xs text-gray-500 capitalize">{user.role}</p>
-              </div>
+              <span className="text-sm text-gray-600">{user.name}</span>
+              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
+                {user.role}
+              </span>
               <button
                 onClick={handleLogout}
                 className="text-gray-500 hover:text-gray-700"
@@ -263,7 +306,7 @@ const MakeInspiresDashboard = () => {
       </header>
       
       {/* Navigation Tabs */}
-      <div className="bg-white border-b">
+      <nav className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8 overflow-x-auto">
             {tabs.map(tab => {
@@ -285,17 +328,16 @@ const MakeInspiresDashboard = () => {
             })}
           </div>
         </div>
-      </div>
+      </nav>
       
-      {/* Filters Bar */}
+      {/* Filter Controls */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex flex-wrap items-center gap-4">
-            {/* Date Range Filter */}
             <select
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value)}
-              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Time</option>
               <option value="7d">Last 7 Days</option>
@@ -304,103 +346,99 @@ const MakeInspiresDashboard = () => {
               <option value="6m">Last 6 Months</option>
               <option value="12m">Last 12 Months</option>
               <option value="ytd">Year to Date</option>
+              <option value="custom">Custom Range</option>
             </select>
             
-            {/* Location Filter */}
-            <select
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">All Locations</option>
-              <option value="Mamaroneck">Mamaroneck</option>
-              <option value="NYC">NYC</option>
-              <option value="Chappaqua">Chappaqua</option>
-              <option value="Partners">Partners</option>
-            </select>
+            {/* Custom Date Range Inputs (NEW in v45.4) */}
+            {dateRange === 'custom' && (
+              <>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Start Date"
+                />
+                <span className="text-gray-500">to</span>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="End Date"
+                />
+              </>
+            )}
             
-            {/* Program Type Filter */}
-            <select
-              value={programType}
-              onChange={(e) => setProgramType(e.target.value)}
-              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">All Programs</option>
-              <option value="Semester Programs">Semester</option>
-              <option value="Weekly Classes">Weekly</option>
-              <option value="Drop-in Sessions">Drop-in</option>
-              <option value="Birthday Parties">Parties</option>
-              <option value="Camps & Intensives">Camps</option>
-              <option value="Workshops & MakeJams">Workshops</option>
-              <option value="Package Deals">Packages</option>
-            </select>
-            
-            {/* Advanced Filters Toggle */}
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center space-x-1 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900"
+              className="flex items-center space-x-1 text-sm text-gray-600 hover:text-gray-900"
             >
+              <ChevronDown className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
               <span>Advanced Filters</span>
-              <ChevronDown className={`transition-transform ${showFilters ? 'rotate-180' : ''}`} size={16} />
             </button>
             
-            {/* Active Filter Count */}
             {(dateRange !== 'all' || location !== 'all' || programType !== 'all') && (
-              <div className="flex items-center space-x-2 px-3 py-1 bg-blue-50 rounded-lg">
-                <span className="text-sm text-blue-700">
-                  {[dateRange !== 'all', location !== 'all', programType !== 'all'].filter(Boolean).length} filters active
-                </span>
-                <button
-                  onClick={() => {
-                    setDateRange('all');
-                    setLocation('all');
-                    setProgramType('all');
-                  }}
-                  className="text-blue-600 hover:text-blue-800"
-                >
-                  <X size={16} />
-                </button>
-              </div>
+              <button
+                onClick={() => {
+                  setDateRange('all');
+                  setLocation('all');
+                  setProgramType('all');
+                  setCustomStartDate('');
+                  setCustomEndDate('');
+                }}
+                className="flex items-center space-x-1 text-sm text-blue-600 hover:text-blue-700"
+              >
+                <X size={14} />
+                <span>Clear Filters</span>
+              </button>
             )}
           </div>
           
           {/* Advanced Filters Panel */}
           {showFilters && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Customer Type
-                  </label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <option>All Customers</option>
-                    <option>New Customers</option>
-                    <option>Returning Customers</option>
-                    <option>VIP Customers</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Payment Status
-                  </label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <option>All Payments</option>
-                    <option>Succeeded</option>
-                    <option>Pending</option>
-                    <option>Refunded</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Revenue Range
-                  </label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <option>All Amounts</option>
-                    <option>$0 - $100</option>
-                    <option>$100 - $500</option>
-                    <option>$500 - $1000</option>
-                    <option>$1000+</option>
-                  </select>
+            <div className="mt-3 pt-3 border-t grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Location
+                </label>
+                <select
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="w-full text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Locations</option>
+                  <option value="Mamaroneck">Mamaroneck</option>
+                  <option value="NYC">NYC</option>
+                  <option value="Chappaqua">Chappaqua</option>
+                  <option value="Partner">Partner Locations</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Program Type
+                </label>
+                <select
+                  value={programType}
+                  onChange={(e) => setProgramType(e.target.value)}
+                  className="w-full text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Programs</option>
+                  <option value="Semester Programs">Semester Programs</option>
+                  <option value="Weekly Classes">Weekly Classes</option>
+                  <option value="Drop-in Sessions">Drop-in Sessions</option>
+                  <option value="Birthday Parties">Birthday Parties</option>
+                  <option value="Camps & Intensives">Camps & Intensives</option>
+                  <option value="Workshops & MakeJams">Workshops & MakeJams</option>
+                  <option value="Other Programs">Other Programs</option>
+                </select>
+              </div>
+              
+              <div className="flex items-end">
+                <div className="text-sm text-gray-600">
+                  {filteredData.overview.totalTransactions.toLocaleString()} transactions
+                  {dateRange !== 'all' && ' (filtered)'}
                 </div>
               </div>
             </div>
@@ -420,11 +458,12 @@ const MakeInspiresDashboard = () => {
           dateRange={dateRange}
           location={location}
           programType={programType}
+          customStartDate={customStartDate}
+          customEndDate={customEndDate}
         />
       </main>
     </div>
   );
 };
 
-// Export the component
 export default MakeInspiresDashboard;
