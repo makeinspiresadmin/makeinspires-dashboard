@@ -44,7 +44,44 @@ import {
   Clock
 } from 'lucide-react';
 
-const MakeInspiresDashboard = () => {
+/**
+ * MakeInspires Dashboard v45.3 - Revenue Fix & No Sample Data
+ * 
+ * 🚨 CRITICAL: FEATURE PRESERVATION PROTOCOL 🚨
+ * ==============================================
+ * 
+ * ⚠️ NEVER REMOVE ANY OF THESE FEATURES WITHOUT EXPLICIT APPROVAL:
+ * 
+ * ✅ REVENUE CALCULATION FIX (MANDATORY):
+ * - Order ID deduplication using Map-based tracking (seenOrderIds.has/set)
+ * - Enhanced number parsing with currency symbol removal
+ * - Proper float precision handling (Math.round * 100 / 100)
+ * - Comprehensive filtering: Payment Status = "Succeeded" AND Amount > 0
+ * - Detailed console logging for debugging revenue calculations
+ * - This fix resolves the $10,051.09 over-reporting issue
+ * 
+ * ✅ DELETE DATA FUNCTION (MANDATORY - ADMIN ONLY):
+ * - handleDeleteData() function with confirmation dialog
+ * - Admin-only permission check (user.role === 'admin')
+ * - Resets ALL data to empty state (no sample data fallback)
+ * - Updates upload history with deletion record
+ * - UI button in Upload tab under "Data Management"
+ * 
+ * ✅ NO SAMPLE DATA POLICY (MANDATORY):
+ * - Dashboard starts completely empty (all arrays [], numbers 0)
+ * - NO fallback to sample/mock/simulated data EVER
+ * - Only displays data from actual CSV uploads
+ * - "No Data Available" screen when empty
+ * - Delete function resets to empty state, not sample data
+ * 
+ * ✅ MAKEINSPIRES LOGO (MANDATORY):
+ * - Logo URL: https://static.wixstatic.com/media/107b16_5f29910420a944bc8577820a2e89eb63~mv2.jpg
+ * - Displays in login screen (64px) and main header (32px)
+ * - Rounded circular appearance
+ * - Proper fallback handling
+ */
+
+function MakeInspiresDashboard() {
   // Authentication states
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -68,128 +105,21 @@ const MakeInspiresDashboard = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [processingStatus, setProcessingStatus] = useState('');
 
-  // Dashboard data state with sample data
+  // Dashboard data state - NO SAMPLE DATA, only from CSV uploads
   const [dashboardData, setDashboardData] = useState({
     overview: {
-      totalRevenue: 2510000,
-      totalTransactions: 6138,
-      avgTransactionValue: 409,
-      uniqueCustomers: 3547,
-      newCustomersThisMonth: 142,
-      returningCustomers: 3405,
-      customerRetentionRate: 96.0,
-      avgCustomerLifetimeValue: 708
+      totalRevenue: 0,
+      totalTransactions: 0,
+      avgTransactionValue: 0,
+      uniqueCustomers: 0,
+      newCustomersThisMonth: 0,
+      returningCustomers: 0,
+      customerRetentionRate: 0,
+      avgCustomerLifetimeValue: 0
     },
-    monthlyData: [
-      { month: '2023-06', revenue: 178945, transactions: 437, customers: 325, mamaroneck: 96576, nyc: 53640, chappaqua: 28729 },
-      { month: '2023-07', revenue: 189234, transactions: 462, customers: 343, mamaroneck: 102166, nyc: 56760, chappaqua: 30308 },
-      { month: '2023-08', revenue: 165432, transactions: 404, customers: 300, mamaroneck: 89334, nyc: 49630, chappaqua: 26468 },
-      { month: '2023-09', revenue: 201567, transactions: 492, customers: 366, mamaroneck: 108846, nyc: 60470, chappaqua: 32251 },
-      { month: '2023-10', revenue: 187654, transactions: 458, customers: 340, mamaroneck: 101373, nyc: 56296, chappaqua: 29985 },
-      { month: '2023-11', revenue: 156789, transactions: 383, customers: 284, mamaroneck: 84666, nyc: 47037, chappaqua: 25086 },
-      { month: '2023-12', revenue: 134567, transactions: 329, customers: 244, mamaroneck: 72666, nyc: 40370, chappaqua: 21531 },
-      { month: '2024-01', revenue: 198765, transactions: 485, customers: 361, mamaroneck: 107273, nyc: 59596, chappaqua: 31896 },
-      { month: '2024-02', revenue: 176543, transactions: 431, customers: 320, mamaroneck: 95333, nyc: 52963, chappaqua: 28247 },
-      { month: '2024-03', revenue: 209876, transactions: 512, customers: 381, mamaroneck: 113333, nyc: 62938, chappaqua: 33605 },
-      { month: '2024-04', revenue: 187432, transactions: 458, customers: 340, mamaroneck: 101213, nyc: 56207, chappaqua: 30012 },
-      { month: '2024-05', revenue: 165234, transactions: 404, customers: 300, mamaroneck: 89226, nyc: 49570, chappaqua: 26438 },
-      { month: '2024-06', revenue: 145876, transactions: 356, customers: 265, mamaroneck: 78773, nyc: 43763, chappaqua: 23340 },
-      { month: '2024-07', revenue: 156789, transactions: 383, customers: 284, mamaroneck: 84666, nyc: 47037, chappaqua: 25086 },
-      { month: '2024-08', revenue: 167890, transactions: 410, customers: 304, mamaroneck: 90660, nyc: 50367, chappaqua: 26863 },
-      { month: '2024-09', revenue: 134567, transactions: 329, customers: 245, mamaroneck: 72666, nyc: 40370, chappaqua: 21531 },
-      { month: '2024-10', revenue: 123456, transactions: 301, customers: 224, mamaroneck: 66666, nyc: 37037, chappaqua: 19753 },
-      { month: '2024-11', revenue: 112345, transactions: 274, customers: 203, mamaroneck: 60666, nyc: 33704, chappaqua: 17975 },
-      { month: '2024-12', revenue: 189234, transactions: 462, customers: 343, mamaroneck: 102166, nyc: 56760, chappaqua: 30308 },
-      { month: '2025-01', revenue: 145678, transactions: 356, customers: 265, mamaroneck: 78666, nyc: 43707, chappaqua: 23305 },
-      { month: '2025-02', revenue: 123789, transactions: 302, customers: 224, mamaroneck: 66846, nyc: 37137, chappaqua: 19806 },
-      { month: '2025-03', revenue: 156234, transactions: 381, customers: 283, mamaroneck: 84366, nyc: 46870, chappaqua: 25002 },
-      { month: '2025-04', revenue: 167345, transactions: 408, customers: 303, mamaroneck: 90366, nyc: 50204, chappaqua: 26775 },
-      { month: '2025-05', revenue: 178456, transactions: 436, customers: 324, mamaroneck: 96366, nyc: 53565, chappaqua: 28525 },
-      { month: '2025-06', revenue: 189567, transactions: 463, customers: 344, mamaroneck: 102366, nyc: 56870, chappaqua: 30331 },
-      { month: '2025-07', revenue: 198765, transactions: 485, customers: 361, mamaroneck: 107273, nyc: 59596, chappaqua: 31896 },
-      { month: '2025-08', revenue: 156789, transactions: 383, customers: 284, mamaroneck: 84666, nyc: 47037, chappaqua: 25086 }
-    ],
-    programPerformance: [
-      { 
-        name: 'Semester Programs', 
-        value: 854370,
-        revenue: 854370,
-        transactions: 1572,
-        percentage: 34.0,
-        avgTransactionValue: 543
-      },
-      { 
-        name: 'Weekly Programs', 
-        value: 627450,
-        revenue: 627450,
-        transactions: 1487,
-        percentage: 25.0,
-        avgTransactionValue: 422
-      },
-      { 
-        name: 'Drop-in Sessions', 
-        value: 377250,
-        revenue: 377250,
-        transactions: 1354,
-        percentage: 15.0,
-        avgTransactionValue: 278
-      },
-      { 
-        name: 'Birthday Parties', 
-        value: 314700,
-        revenue: 314700,
-        transactions: 654,
-        percentage: 12.5,
-        avgTransactionValue: 481
-      },
-      { 
-        name: 'Summer Camps', 
-        value: 188820,
-        revenue: 188820,
-        transactions: 298,
-        percentage: 7.5,
-        avgTransactionValue: 634
-      },
-      { 
-        name: 'Workshops & MakeJams', 
-        value: 125640,
-        revenue: 125640,
-        transactions: 428,
-        percentage: 5.0,
-        avgTransactionValue: 294
-      },
-      { 
-        name: 'Other Programs', 
-        value: 25110,
-        revenue: 25110,
-        transactions: 89,
-        percentage: 1.0,
-        avgTransactionValue: 282
-      }
-    ],
-    locations: [
-      { 
-        location: 'Mamaroneck', 
-        revenue: 1355400, 
-        transactions: 3314,
-        avgTransactionValue: 409,
-        marketShare: 54.0
-      },
-      { 
-        location: 'NYC', 
-        revenue: 753000, 
-        transactions: 1839,
-        avgTransactionValue: 409,
-        marketShare: 30.0
-      },
-      { 
-        location: 'Chappaqua', 
-        revenue: 401600, 
-        transactions: 985,
-        avgTransactionValue: 408,
-        marketShare: 16.0
-      }
-    ],
+    monthlyData: [],
+    programPerformance: [],
+    locations: [],
     transactions: [],
     uploadHistory: []
   });
@@ -318,7 +248,9 @@ const MakeInspiresDashboard = () => {
     return 'Other Programs';
   };
 
-  // FIXED: Enhanced CSV processing with proper Order ID deduplication
+  // CRITICAL: Enhanced CSV processing with MANDATORY revenue calculation fix
+  // This function resolves the $10,051.09 over-reporting issue through proper deduplication
+  // NEVER remove Order ID deduplication or modify revenue calculation logic without approval
   const processCSVFile = async (file) => {
     try {
       const text = await new Promise((resolve, reject) => {
@@ -401,7 +333,8 @@ const MakeInspiresDashboard = () => {
             continue;
           }
           
-          // CRITICAL FIX: Proper Order ID deduplication
+          // CRITICAL FIX: Proper Order ID deduplication (NEVER REMOVE)
+          // This prevents double-counting of transactions and ensures revenue accuracy
           if (seenOrderIds.has(orderId)) {
             duplicateCount++;
             console.log(`⚠️ Duplicate Order ID found: ${orderId} (skipping)`);
@@ -542,7 +475,8 @@ const MakeInspiresDashboard = () => {
         transactions,
         locations,
         programPerformance,
-        monthlyData: monthlyData.length > 0 ? monthlyData : dashboardData.monthlyData
+        // MANDATORY: Only use uploaded data, never fall back to sample data
+        monthlyData: monthlyData.length > 0 ? monthlyData : []
       };
       
     } catch (error) {
@@ -551,33 +485,38 @@ const MakeInspiresDashboard = () => {
     }
   };
 
-  // Delete data handler
+  // CRITICAL: Delete data handler - NEVER REMOVE THIS FUNCTION
+  // This is an essential Admin-only feature for data management
   const handleDeleteData = () => {
     if (!user || user.role !== 'admin') {
       setUploadStatus('❌ Permission denied. Only Admin role can delete data.');
       return;
     }
 
-    if (window.confirm('⚠️ WARNING: This will delete all uploaded transaction data and reset to sample data. This cannot be undone. Are you sure?')) {
+    if (window.confirm('⚠️ WARNING: This will delete all uploaded transaction data and reset to empty state. This cannot be undone. Are you sure?')) {
+      // MANDATORY: Reset to completely empty state (NO SAMPLE DATA)
       setDashboardData(prev => ({
         ...prev,
         transactions: [],
         uploadHistory: [],
         overview: {
-          totalRevenue: 2510000,
-          totalTransactions: 6138,
-          avgTransactionValue: 409,
-          uniqueCustomers: 3547,
-          newCustomersThisMonth: 142,
-          returningCustomers: 3405,
-          customerRetentionRate: 96.0,
-          avgCustomerLifetimeValue: 708
-        }
+          totalRevenue: 0,
+          totalTransactions: 0,
+          avgTransactionValue: 0,
+          uniqueCustomers: 0,
+          newCustomersThisMonth: 0,
+          returningCustomers: 0,
+          customerRetentionRate: 0,
+          avgCustomerLifetimeValue: 0
+        },
+        monthlyData: [],
+        programPerformance: [],
+        locations: []
       }));
       
-      setUploadStatus('✅ All data deleted successfully. Dashboard reset to sample data.');
+      setUploadStatus('✅ All data deleted successfully. Dashboard reset to empty state.');
       
-      // Add to upload history
+      // Add deletion record to upload history
       const deleteRecord = {
         fileName: 'DATA_DELETION',
         timestamp: new Date().toLocaleString(),
@@ -658,6 +597,15 @@ const MakeInspiresDashboard = () => {
 
   // Filtered data calculation
   const filteredData = useMemo(() => {
+    if (dashboardData.transactions.length === 0) {
+      return {
+        totalRevenue: 0,
+        totalTransactions: 0,
+        avgTransactionValue: 0,
+        uniqueCustomers: 0
+      };
+    }
+
     const startDate = getDateRange();
     const endDate = dateRange === 'custom' && customEndDate ? new Date(customEndDate) : new Date();
     
@@ -728,9 +676,14 @@ const MakeInspiresDashboard = () => {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
           <div className="text-center mb-8">
-            <div className="mx-auto w-16 h-16 bg-blue-600 rounded-lg flex items-center justify-center mb-4">
-              <BarChart3 size={32} className="text-white" />
-            </div>
+            <img 
+              src="https://static.wixstatic.com/media/107b16_5f29910420a944bc8577820a2e89eb63~mv2.jpg" 
+              alt="MakeInspires Logo" 
+              width={64} 
+              height={64}
+              className="mx-auto mb-4 rounded-full"
+              style={{ width: 64, height: 64, objectFit: 'cover' }}
+            />
             <h1 className="text-2xl font-bold text-gray-900">MakeInspires Analytics</h1>
             <p className="text-gray-600">Sign in to access your dashboard</p>
           </div>
@@ -808,10 +761,31 @@ const MakeInspiresDashboard = () => {
     );
   }
 
+  // MANDATORY: All 7 tabs must remain functional - NEVER REMOVE ANY TAB
+  // Each tab serves a specific business purpose and user workflow
+
   // Overview tab content
   const renderOverview = () => {
     const metrics = dashboardData.transactions.length > 0 ? filteredData : dashboardData.overview;
     
+    if (dashboardData.transactions.length === 0) {
+      return (
+        <div className="space-y-6">
+          <div className="bg-white p-8 rounded-lg shadow-sm border text-center">
+            <Upload size={48} className="mx-auto text-gray-400 mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Available</h3>
+            <p className="text-gray-600 mb-4">Upload a CSV file to see your analytics dashboard</p>
+            <button
+              onClick={() => setActiveTab('upload')}
+              className="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Go to Upload
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-6">
         {/* Key Metrics */}
@@ -1253,10 +1227,11 @@ const MakeInspiresDashboard = () => {
                 <p className="text-sm text-gray-600 mb-3">
                   {dashboardData.transactions.length > 0 
                     ? `${dashboardData.transactions.length.toLocaleString()} uploaded transactions`
-                    : 'Using sample data'
+                    : 'No data uploaded yet'
                   }
                 </p>
                 
+                {/* MANDATORY: Delete Data button - Admin only, essential for data management */}
                 {user && user.role === 'admin' && (
                   <button
                     onClick={handleDeleteData}
@@ -1350,9 +1325,14 @@ const MakeInspiresDashboard = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <BarChart3 size={20} className="text-white" />
-              </div>
+              <img 
+                src="https://static.wixstatic.com/media/107b16_5f29910420a944bc8577820a2e89eb63~mv2.jpg" 
+                alt="MakeInspires Logo" 
+                width={32} 
+                height={32}
+                className="flex-shrink-0 rounded-full"
+                style={{ width: 32, height: 32, objectFit: 'cover' }}
+              />
               <div>
                 <h1 className="text-xl font-bold text-gray-900">MakeInspires Analytics</h1>
                 <p className="text-xs text-gray-500">v45.3 - Revenue Fix</p>
@@ -1379,7 +1359,7 @@ const MakeInspiresDashboard = () => {
         </div>
       </header>
 
-      {/* Navigation Tabs */}
+      {/* MANDATORY: All 7 tabs must be preserved - Overview, Analytics, YoY, Predictive, Customers, Partners, Upload */}
       <nav className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8 overflow-x-auto">
@@ -1412,7 +1392,7 @@ const MakeInspiresDashboard = () => {
         </div>
       </nav>
 
-      {/* Filters */}
+      {/* MANDATORY: Advanced filtering system - NEVER REMOVE OR SIMPLIFY */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           {/* Date Range Filters */}
@@ -1543,6 +1523,6 @@ const MakeInspiresDashboard = () => {
       </main>
     </div>
   );
-};
+}
 
 export default MakeInspiresDashboard;
