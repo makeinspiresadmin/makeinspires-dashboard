@@ -1,30 +1,3 @@
-/**
- * MakeInspires Dashboard v45.3 - Revenue Calculation Fix
- * 
- * ✅ FIXED: Revenue discrepancy issue
- * - Added proper Order ID deduplication in processCSVFile()
- * - Fixed parsing precision issues 
- * - Improved error handling and logging
- * 
- * 🔍 INVESTIGATION RESULTS:
- * - Manual CSV sum: $2,077,255.20 (includes failed/negative transactions)
- * - After filtering invalid transactions: $2,009,864.99
- * - After proper Order ID deduplication: $1,996,371.91 ✅ CORRECT
- * - Previous dashboard showed: $2,006,423.00 (over-reporting by $10,051)
- * 
- * 🛠️ FIXES IMPLEMENTED:
- * 1. Added Map-based Order ID deduplication (keeps first occurrence only)
- * 2. Enhanced parseCSVLine function for better number parsing
- * 3. Added comprehensive logging for revenue calculation debugging
- * 4. Improved float precision handling
- * 5. Added validation for duplicate detection accuracy
- * 
- * 📊 All other features preserved:
- * - 7 tabs, authentication, filtering, charts, responsive design
- * - Upload system, role permissions, error handling
- * - Location analytics, program categorization, customer metrics
- */
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   BarChart, 
@@ -578,6 +551,48 @@ const MakeInspiresDashboard = () => {
     }
   };
 
+  // Delete data handler
+  const handleDeleteData = () => {
+    if (!user || user.role !== 'admin') {
+      setUploadStatus('❌ Permission denied. Only Admin role can delete data.');
+      return;
+    }
+
+    if (window.confirm('⚠️ WARNING: This will delete all uploaded transaction data and reset to sample data. This cannot be undone. Are you sure?')) {
+      setDashboardData(prev => ({
+        ...prev,
+        transactions: [],
+        uploadHistory: [],
+        overview: {
+          totalRevenue: 2510000,
+          totalTransactions: 6138,
+          avgTransactionValue: 409,
+          uniqueCustomers: 3547,
+          newCustomersThisMonth: 142,
+          returningCustomers: 3405,
+          customerRetentionRate: 96.0,
+          avgCustomerLifetimeValue: 708
+        }
+      }));
+      
+      setUploadStatus('✅ All data deleted successfully. Dashboard reset to sample data.');
+      
+      // Add to upload history
+      const deleteRecord = {
+        fileName: 'DATA_DELETION',
+        timestamp: new Date().toLocaleString(),
+        totalTransactions: 0,
+        totalRevenue: 0,
+        status: 'Data Deleted'
+      };
+      
+      setDashboardData(prev => ({
+        ...prev,
+        uploadHistory: [deleteRecord, ...prev.uploadHistory]
+      }));
+    }
+  };
+
   // File upload handler with enhanced error handling
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -793,6 +808,540 @@ const MakeInspiresDashboard = () => {
     );
   }
 
+  // Overview tab content
+  const renderOverview = () => {
+    const metrics = dashboardData.transactions.length > 0 ? filteredData : dashboardData.overview;
+    
+    return (
+      <div className="space-y-6">
+        {/* Key Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-2xl font-bold text-gray-900">
+                  ${metrics.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-sm text-gray-600">Total Revenue</p>
+              </div>
+              <DollarSign className="text-green-500" size={24} />
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-2xl font-bold text-gray-900">{metrics.totalTransactions.toLocaleString()}</p>
+                <p className="text-sm text-gray-600">Total Transactions</p>
+              </div>
+              <Activity className="text-blue-500" size={24} />
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-2xl font-bold text-gray-900">
+                  ${metrics.avgTransactionValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-sm text-gray-600">Avg Transaction Value</p>
+              </div>
+              <TrendingUp className="text-purple-500" size={24} />
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-2xl font-bold text-gray-900">{metrics.uniqueCustomers.toLocaleString()}</p>
+                <p className="text-sm text-gray-600">Unique Customers</p>
+              </div>
+              <Users className="text-orange-500" size={24} />
+            </div>
+          </div>
+        </div>
+
+        {/* Charts Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Program Distribution */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Program Distribution</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={dashboardData.programPerformance}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  fill="#8884d8"
+                  dataKey="value"
+                  label={({name, percentage}) => `${name}: ${percentage}%`}
+                >
+                  {dashboardData.programPerformance.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Revenue']} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Location Performance */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Location Performance</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={dashboardData.locations}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="location" />
+                <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(0)}K`} />
+                <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Revenue']} />
+                <Bar dataKey="revenue" fill="#3B82F6" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Monthly Trends */}
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Monthly Revenue Trends</h3>
+          <ResponsiveContainer width="100%" height={400}>
+            <LineChart data={dashboardData.monthlyData.slice(-12)}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" />
+              <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(0)}K`} />
+              <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Revenue']} />
+              <Line type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    );
+  };
+
+  // Analytics tab content
+  const renderAnalytics = () => {
+    return (
+      <div className="space-y-6">
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-6">
+          <h2 className="text-xl font-semibold text-blue-900 mb-2">Advanced Analytics</h2>
+          <p className="text-blue-700">Deep dive into performance metrics and business insights</p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Location Comparison */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Location Revenue by Month</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={dashboardData.monthlyData.slice(-6)}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(0)}K`} />
+                <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Revenue']} />
+                <Area type="monotone" dataKey="mamaroneck" stackId="1" stroke="#3B82F6" fill="#3B82F6" />
+                <Area type="monotone" dataKey="nyc" stackId="1" stroke="#10B981" fill="#10B981" />
+                <Area type="monotone" dataKey="chappaqua" stackId="1" stroke="#F59E0B" fill="#F59E0B" />
+                <Legend />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Transaction Volume */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Transaction Volume Trends</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={dashboardData.monthlyData.slice(-6)}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="transactions" fill="#8B5CF6" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Performance Metrics */}
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Program Performance Details</h3>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transactions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Value</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Share</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {dashboardData.programPerformance.map((program, index) => (
+                  <tr key={program.name} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{program.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${program.revenue.toLocaleString()}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{program.transactions.toLocaleString()}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${program.avgTransactionValue}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{program.percentage}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Year-over-Year tab content
+  const renderYoY = () => {
+    return (
+      <div className="space-y-6">
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200 p-6">
+          <h2 className="text-xl font-semibold text-green-900 mb-2">Year-over-Year Analysis</h2>
+          <p className="text-green-700">Compare performance across different years</p>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">YoY Revenue Comparison</h3>
+          <ResponsiveContainer width="100%" height={400}>
+            <LineChart data={dashboardData.monthlyData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" />
+              <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(0)}K`} />
+              <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Revenue']} />
+              <Line type="monotone" dataKey="revenue" stroke="#10B981" strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-lg shadow-sm border text-center">
+            <h4 className="text-lg font-semibold text-gray-900 mb-2">2024 Total</h4>
+            <p className="text-3xl font-bold text-green-600">$1.8M</p>
+            <p className="text-sm text-gray-600 mt-1">+15% vs 2023</p>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow-sm border text-center">
+            <h4 className="text-lg font-semibold text-gray-900 mb-2">2025 YTD</h4>
+            <p className="text-3xl font-bold text-blue-600">$1.2M</p>
+            <p className="text-sm text-gray-600 mt-1">+8% vs 2024 YTD</p>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow-sm border text-center">
+            <h4 className="text-lg font-semibold text-gray-900 mb-2">Growth Rate</h4>
+            <p className="text-3xl font-bold text-purple-600">12%</p>
+            <p className="text-sm text-gray-600 mt-1">Annual average</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Predictive Analytics tab content
+  const renderPredictive = () => {
+    return (
+      <div className="space-y-6">
+        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-200 p-6">
+          <h2 className="text-xl font-semibold text-purple-900 mb-2">Predictive Analytics</h2>
+          <p className="text-purple-700">AI-powered forecasting and trend analysis</p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue Forecast</h3>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center p-4 bg-blue-50 rounded-lg">
+                <div>
+                  <p className="font-semibold text-blue-900">Next Month</p>
+                  <p className="text-sm text-blue-700">September 2025</p>
+                </div>
+                <p className="text-2xl font-bold text-blue-600">$165K</p>
+              </div>
+              <div className="flex justify-between items-center p-4 bg-green-50 rounded-lg">
+                <div>
+                  <p className="font-semibold text-green-900">Q4 2025</p>
+                  <p className="text-sm text-green-700">Oct - Dec 2025</p>
+                </div>
+                <p className="text-2xl font-bold text-green-600">$485K</p>
+              </div>
+              <div className="flex justify-between items-center p-4 bg-purple-50 rounded-lg">
+                <div>
+                  <p className="font-semibold text-purple-900">2025 Total</p>
+                  <p className="text-sm text-purple-700">Full year projection</p>
+                </div>
+                <p className="text-2xl font-bold text-purple-600">$2.1M</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Trend Analysis</h3>
+            <div className="space-y-4">
+              <div className="p-4 border border-green-200 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-gray-900">Summer Programs</span>
+                  <span className="text-green-600 font-semibold">↗ Growing</span>
+                </div>
+                <p className="text-sm text-gray-600">25% increase expected in summer enrollment</p>
+              </div>
+              <div className="p-4 border border-yellow-200 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-gray-900">Birthday Parties</span>
+                  <span className="text-yellow-600 font-semibold">→ Stable</span>
+                </div>
+                <p className="text-sm text-gray-600">Consistent demand with seasonal variations</p>
+              </div>
+              <div className="p-4 border border-blue-200 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-gray-900">Drop-in Sessions</span>
+                  <span className="text-blue-600 font-semibold">↗ Opportunity</span>
+                </div>
+                <p className="text-sm text-gray-600">Potential for 15% growth with marketing push</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Customers tab content
+  const renderCustomers = () => {
+    const metrics = dashboardData.transactions.length > 0 ? filteredData : dashboardData.overview;
+    
+    return (
+      <div className="space-y-6">
+        <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-lg border border-orange-200 p-6">
+          <h2 className="text-xl font-semibold text-orange-900 mb-2">Customer Analytics</h2>
+          <p className="text-orange-700">Understanding customer behavior and lifetime value</p>
+        </div>
+
+        {dashboardData.transactions.length > 0 ? (
+          <div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+              <div className="border-l-4 border-blue-400 pl-4">
+                <p className="text-lg font-semibold">{metrics.uniqueCustomers}</p>
+                <p className="text-sm text-gray-600">Total Unique Customers</p>
+              </div>
+              <div className="border-l-4 border-green-400 pl-4">
+                <p className="text-lg font-semibold">
+                  ${(metrics.totalRevenue / metrics.uniqueCustomers).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-sm text-gray-600">Average Customer Value</p>
+              </div>
+              <div className="border-l-4 border-purple-400 pl-4">
+                <p className="text-lg font-semibold">
+                  {(metrics.totalTransactions / metrics.uniqueCustomers).toFixed(1)}
+                </p>
+                <p className="text-sm text-gray-600">Avg Transactions per Customer</p>
+              </div>
+              <div className="border-l-4 border-yellow-400 pl-4">
+                <p className="text-lg font-semibold">
+                  ${metrics.avgTransactionValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-sm text-gray-600">Avg Transaction Value</p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white p-8 rounded-lg shadow-sm border text-center">
+            <Users size={48} className="mx-auto text-gray-400 mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Customer Data</h3>
+            <p className="text-gray-600">Upload transaction data to view customer analytics</p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Partners tab content
+  const renderPartners = () => {
+    return (
+      <div className="space-y-6">
+        <div className="bg-gradient-to-r from-teal-50 to-blue-50 rounded-lg border border-teal-200 p-6">
+          <h2 className="text-xl font-semibold text-teal-900 mb-2">Partner Analytics</h2>
+          <p className="text-teal-700">Partner program performance and collaboration metrics</p>
+        </div>
+        
+        <div className="bg-white p-8 rounded-lg shadow-sm border text-center">
+          <Globe size={48} className="mx-auto text-gray-400 mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Partner Program Analytics</h3>
+          <p className="text-gray-600 mb-4">Partner collaboration and revenue sharing insights coming soon</p>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-center justify-center space-x-2">
+              <Clock size={16} className="text-yellow-600" />
+              <span className="text-sm font-medium text-yellow-800">Expected Launch: Q4 2025</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Upload tab content
+  const renderUpload = () => {
+    const canUpload = user && (user.role === 'admin' || user.role === 'manager');
+    
+    return (
+      <div className="space-y-6">
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-200 p-6">
+          <h2 className="text-xl font-semibold text-indigo-900 mb-2">Data Upload</h2>
+          <p className="text-indigo-700">Upload Sawyer transaction exports to update analytics</p>
+        </div>
+
+        {!canUpload && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-center space-x-2">
+              <AlertCircle className="text-yellow-600" size={20} />
+              <span className="font-medium text-yellow-800">Permission Required</span>
+            </div>
+            <p className="text-yellow-700 mt-1">Only Admin and Manager roles can upload files. Current role: {user?.role}</p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Upload Section */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload New Data</h3>
+            
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+              {canUpload ? (
+                <div>
+                  <Upload size={48} className="mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-600 mb-4">Upload Sawyer CSV export file</p>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={handleFileUpload}
+                    disabled={isUploading}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <Lock size={48} className="mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-600">Upload restricted to Admin and Manager roles</p>
+                </div>
+              )}
+            </div>
+
+            {isUploading && (
+              <div className="mt-4 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-2 text-sm text-gray-600">{processingStatus || 'Processing...'}</p>
+              </div>
+            )}
+
+            {uploadStatus && (
+              <div className={`mt-4 p-3 rounded-lg ${
+                uploadStatus.startsWith('✅') 
+                  ? 'bg-green-50 border border-green-200 text-green-700'
+                  : 'bg-red-50 border border-red-200 text-red-700'
+              }`}>
+                <p className="text-sm">{uploadStatus}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Data Management Section */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Data Management</h3>
+            
+            <div className="space-y-4">
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <h4 className="font-medium text-gray-900 mb-2">Database Status</h4>
+                <p className="text-sm text-gray-600 mb-3">
+                  {dashboardData.transactions.length > 0 
+                    ? `${dashboardData.transactions.length.toLocaleString()} uploaded transactions`
+                    : 'Using sample data'
+                  }
+                </p>
+                
+                {user && user.role === 'admin' && (
+                  <button
+                    onClick={handleDeleteData}
+                    className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                  >
+                    🗑️ Delete All Data
+                  </button>
+                )}
+                
+                {user && user.role !== 'admin' && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                    <p className="text-sm text-yellow-800">
+                      <AlertCircle size={16} className="inline mr-1" />
+                      Only Admin can delete data
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <h4 className="font-medium text-blue-900 mb-2">Data Info</h4>
+                <p className="text-sm text-blue-800">
+                  • CSV files are processed with duplicate detection<br/>
+                  • Only 'Succeeded' payments with positive amounts<br/>
+                  • Data persists until manually deleted
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Upload History */}
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload History</h3>
+          
+          {dashboardData.uploadHistory.length > 0 ? (
+            <div className="space-y-3">
+              {dashboardData.uploadHistory.slice(0, 5).map((upload, index) => (
+                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="font-medium text-gray-900 text-sm">{upload.fileName}</p>
+                    <p className="text-xs text-gray-500">{upload.timestamp}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-gray-900">{upload.totalTransactions} transactions</p>
+                    <p className="text-xs text-gray-500">${upload.totalRevenue.toLocaleString()}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-4">No upload history</p>
+          )}
+        </div>
+
+        {/* Current Database Status */}
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Current Database Status</h3>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="text-center p-4 bg-blue-50 rounded-lg">
+              <FileText size={24} className="mx-auto text-blue-600 mb-2" />
+              <p className="text-2xl font-bold text-blue-600">{dashboardData.overview.totalTransactions.toLocaleString()}</p>
+              <p className="text-sm text-blue-800">Total Transactions</p>
+            </div>
+            <div className="text-center p-4 bg-green-50 rounded-lg">
+              <DollarSign size={24} className="mx-auto text-green-600 mb-2" />
+              <p className="text-2xl font-bold text-green-600">${(dashboardData.overview.totalRevenue / 1000000).toFixed(1)}M</p>
+              <p className="text-sm text-green-800">Total Revenue</p>
+            </div>
+            <div className="text-center p-4 bg-purple-50 rounded-lg">
+              <Users size={24} className="mx-auto text-purple-600 mb-2" />
+              <p className="text-2xl font-bold text-purple-600">{dashboardData.overview.uniqueCustomers.toLocaleString()}</p>
+              <p className="text-sm text-purple-800">Unique Customers</p>
+            </div>
+            <div className="text-center p-4 bg-orange-50 rounded-lg">
+              <MapPin size={24} className="mx-auto text-orange-600 mb-2" />
+              <p className="text-2xl font-bold text-orange-600">{dashboardData.locations.length}</p>
+              <p className="text-sm text-orange-800">Active Locations</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Main dashboard layout
   return (
     <div className="min-h-screen bg-gray-50">
@@ -994,496 +1543,6 @@ const MakeInspiresDashboard = () => {
       </main>
     </div>
   );
-
-  // Overview tab content
-  function renderOverview() {
-    const metrics = dashboardData.transactions.length > 0 ? filteredData : dashboardData.overview;
-    
-    return (
-      <div className="space-y-6">
-        {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-bold text-gray-900">
-                  ${metrics.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </p>
-                <p className="text-sm text-gray-600">Total Revenue</p>
-              </div>
-              <DollarSign className="text-green-500" size={24} />
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{metrics.totalTransactions.toLocaleString()}</p>
-                <p className="text-sm text-gray-600">Total Transactions</p>
-              </div>
-              <Activity className="text-blue-500" size={24} />
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-bold text-gray-900">
-                  ${metrics.avgTransactionValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </p>
-                <p className="text-sm text-gray-600">Avg Transaction Value</p>
-              </div>
-              <TrendingUp className="text-purple-500" size={24} />
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{metrics.uniqueCustomers.toLocaleString()}</p>
-                <p className="text-sm text-gray-600">Unique Customers</p>
-              </div>
-              <Users className="text-orange-500" size={24} />
-            </div>
-          </div>
-        </div>
-
-        {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Program Distribution */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Program Distribution</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={dashboardData.programPerformance}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="value"
-                  label={({name, percentage}) => `${name}: ${percentage}%`}
-                >
-                  {dashboardData.programPerformance.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => [`${value.toLocaleString()}`, 'Revenue']} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Location Performance */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Location Performance</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={dashboardData.locations}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="location" />
-                <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`} />
-                <Tooltip formatter={(value) => [`${value.toLocaleString()}`, 'Revenue']} />
-                <Bar dataKey="revenue" fill="#3B82F6" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Monthly Trends */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Monthly Revenue Trends</h3>
-          <ResponsiveContainer width="100%" height={400}>
-            <LineChart data={dashboardData.monthlyData.slice(-12)}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`} />
-              <Tooltip formatter={(value) => [`${value.toLocaleString()}`, 'Revenue']} />
-              <Line type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-    );
-  }
-
-  // Analytics tab content
-  function renderAnalytics() {
-    return (
-      <div className="space-y-6">
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-6">
-          <h2 className="text-xl font-semibold text-blue-900 mb-2">Advanced Analytics</h2>
-          <p className="text-blue-700">Deep dive into performance metrics and business insights</p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Location Comparison */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Location Revenue by Month</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={dashboardData.monthlyData.slice(-6)}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`} />
-                <Tooltip formatter={(value) => [`${value.toLocaleString()}`, 'Revenue']} />
-                <Area type="monotone" dataKey="mamaroneck" stackId="1" stroke="#3B82F6" fill="#3B82F6" />
-                <Area type="monotone" dataKey="nyc" stackId="1" stroke="#10B981" fill="#10B981" />
-                <Area type="monotone" dataKey="chappaqua" stackId="1" stroke="#F59E0B" fill="#F59E0B" />
-                <Legend />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Transaction Volume */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Transaction Volume Trends</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={dashboardData.monthlyData.slice(-6)}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="transactions" fill="#8B5CF6" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Performance Metrics */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Program Performance Details</h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transactions</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Value</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Share</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {dashboardData.programPerformance.map((program, index) => (
-                  <tr key={program.name} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{program.name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${program.revenue.toLocaleString()}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{program.transactions.toLocaleString()}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${program.avgTransactionValue}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{program.percentage}%</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Year-over-Year tab content
-  function renderYoY() {
-    return (
-      <div className="space-y-6">
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200 p-6">
-          <h2 className="text-xl font-semibold text-green-900 mb-2">Year-over-Year Analysis</h2>
-          <p className="text-green-700">Compare performance across different years</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">YoY Revenue Comparison</h3>
-          <ResponsiveContainer width="100%" height={400}>
-            <LineChart data={dashboardData.monthlyData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`} />
-              <Tooltip formatter={(value) => [`${value.toLocaleString()}`, 'Revenue']} />
-              <Line type="monotone" dataKey="revenue" stroke="#10B981" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow-sm border text-center">
-            <h4 className="text-lg font-semibold text-gray-900 mb-2">2024 Total</h4>
-            <p className="text-3xl font-bold text-green-600">$1.8M</p>
-            <p className="text-sm text-gray-600 mt-1">+15% vs 2023</p>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-sm border text-center">
-            <h4 className="text-lg font-semibold text-gray-900 mb-2">2025 YTD</h4>
-            <p className="text-3xl font-bold text-blue-600">$1.2M</p>
-            <p className="text-sm text-gray-600 mt-1">+8% vs 2024 YTD</p>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-sm border text-center">
-            <h4 className="text-lg font-semibold text-gray-900 mb-2">Growth Rate</h4>
-            <p className="text-3xl font-bold text-purple-600">12%</p>
-            <p className="text-sm text-gray-600 mt-1">Annual average</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Predictive Analytics tab content
-  function renderPredictive() {
-    return (
-      <div className="space-y-6">
-        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-200 p-6">
-          <h2 className="text-xl font-semibold text-purple-900 mb-2">Predictive Analytics</h2>
-          <p className="text-purple-700">AI-powered forecasting and trend analysis</p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue Forecast</h3>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center p-4 bg-blue-50 rounded-lg">
-                <div>
-                  <p className="font-semibold text-blue-900">Next Month</p>
-                  <p className="text-sm text-blue-700">September 2025</p>
-                </div>
-                <p className="text-2xl font-bold text-blue-600">$165K</p>
-              </div>
-              <div className="flex justify-between items-center p-4 bg-green-50 rounded-lg">
-                <div>
-                  <p className="font-semibold text-green-900">Q4 2025</p>
-                  <p className="text-sm text-green-700">Oct - Dec 2025</p>
-                </div>
-                <p className="text-2xl font-bold text-green-600">$485K</p>
-              </div>
-              <div className="flex justify-between items-center p-4 bg-purple-50 rounded-lg">
-                <div>
-                  <p className="font-semibold text-purple-900">2025 Total</p>
-                  <p className="text-sm text-purple-700">Full year projection</p>
-                </div>
-                <p className="text-2xl font-bold text-purple-600">$2.1M</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Trend Analysis</h3>
-            <div className="space-y-4">
-              <div className="p-4 border border-green-200 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-gray-900">Summer Programs</span>
-                  <span className="text-green-600 font-semibold">↗ Growing</span>
-                </div>
-                <p className="text-sm text-gray-600">25% increase expected in summer enrollment</p>
-              </div>
-              <div className="p-4 border border-yellow-200 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-gray-900">Birthday Parties</span>
-                  <span className="text-yellow-600 font-semibold">→ Stable</span>
-                </div>
-                <p className="text-sm text-gray-600">Consistent demand with seasonal variations</p>
-              </div>
-              <div className="p-4 border border-blue-200 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-gray-900">Drop-in Sessions</span>
-                  <span className="text-blue-600 font-semibold">↗ Opportunity</span>
-                </div>
-                <p className="text-sm text-gray-600">Potential for 15% growth with marketing push</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Customers tab content
-  function renderCustomers() {
-    const metrics = dashboardData.transactions.length > 0 ? filteredData : dashboardData.overview;
-    
-    return (
-      <div className="space-y-6">
-        <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-lg border border-orange-200 p-6">
-          <h2 className="text-xl font-semibold text-orange-900 mb-2">Customer Analytics</h2>
-          <p className="text-orange-700">Understanding customer behavior and lifetime value</p>
-        </div>
-
-        {dashboardData.transactions.length > 0 ? (
-          <div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-              <div className="border-l-4 border-blue-400 pl-4">
-                <p className="text-lg font-semibold">{metrics.uniqueCustomers}</p>
-                <p className="text-sm text-gray-600">Total Unique Customers</p>
-              </div>
-              <div className="border-l-4 border-green-400 pl-4">
-                <p className="text-lg font-semibold">
-                  ${(metrics.totalRevenue / metrics.uniqueCustomers).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </p>
-                <p className="text-sm text-gray-600">Average Customer Value</p>
-              </div>
-              <div className="border-l-4 border-purple-400 pl-4">
-                <p className="text-lg font-semibold">
-                  {(metrics.totalTransactions / metrics.uniqueCustomers).toFixed(1)}
-                </p>
-                <p className="text-sm text-gray-600">Avg Transactions per Customer</p>
-              </div>
-              <div className="border-l-4 border-yellow-400 pl-4">
-                <p className="text-lg font-semibold">
-                  ${metrics.avgTransactionValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </p>
-                <p className="text-sm text-gray-600">Avg Transaction Value</p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-white p-8 rounded-lg shadow-sm border text-center">
-            <Users size={48} className="mx-auto text-gray-400 mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Customer Data</h3>
-            <p className="text-gray-600">Upload transaction data to view customer analytics</p>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // Partners tab content
-  function renderPartners() {
-    return (
-      <div className="space-y-6">
-        <div className="bg-gradient-to-r from-teal-50 to-blue-50 rounded-lg border border-teal-200 p-6">
-          <h2 className="text-xl font-semibold text-teal-900 mb-2">Partner Analytics</h2>
-          <p className="text-teal-700">Partner program performance and collaboration metrics</p>
-        </div>
-        
-        <div className="bg-white p-8 rounded-lg shadow-sm border text-center">
-          <Globe size={48} className="mx-auto text-gray-400 mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Partner Program Analytics</h3>
-          <p className="text-gray-600 mb-4">Partner collaboration and revenue sharing insights coming soon</p>
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <div className="flex items-center justify-center space-x-2">
-              <Clock size={16} className="text-yellow-600" />
-              <span className="text-sm font-medium text-yellow-800">Expected Launch: Q4 2025</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Upload tab content
-  function renderUpload() {
-    const canUpload = user && (user.role === 'admin' || user.role === 'manager');
-    
-    return (
-      <div className="space-y-6">
-        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-200 p-6">
-          <h2 className="text-xl font-semibold text-indigo-900 mb-2">Data Upload</h2>
-          <p className="text-indigo-700">Upload Sawyer transaction exports to update analytics</p>
-        </div>
-
-        {!canUpload && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <div className="flex items-center space-x-2">
-              <AlertCircle className="text-yellow-600" size={20} />
-              <span className="font-medium text-yellow-800">Permission Required</span>
-            </div>
-            <p className="text-yellow-700 mt-1">Only Admin and Manager roles can upload files. Current role: {user?.role}</p>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Upload Section */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload New Data</h3>
-            
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-              {canUpload ? (
-                <div>
-                  <Upload size={48} className="mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-600 mb-4">Upload Sawyer CSV export file</p>
-                  <input
-                    type="file"
-                    accept=".csv"
-                    onChange={handleFileUpload}
-                    disabled={isUploading}
-                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                  />
-                </div>
-              ) : (
-                <div>
-                  <Lock size={48} className="mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-600">Upload restricted to Admin and Manager roles</p>
-                </div>
-              )}
-            </div>
-
-            {isUploading && (
-              <div className="mt-4 text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="mt-2 text-sm text-gray-600">{processingStatus || 'Processing...'}</p>
-              </div>
-            )}
-
-            {uploadStatus && (
-              <div className={`mt-4 p-3 rounded-lg ${
-                uploadStatus.startsWith('✅') 
-                  ? 'bg-green-50 border border-green-200 text-green-700'
-                  : 'bg-red-50 border border-red-200 text-red-700'
-              }`}>
-                <p className="text-sm">{uploadStatus}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Upload History */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload History</h3>
-            
-            {dashboardData.uploadHistory.length > 0 ? (
-              <div className="space-y-3">
-                {dashboardData.uploadHistory.slice(0, 5).map((upload, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="font-medium text-gray-900 text-sm">{upload.fileName}</p>
-                      <p className="text-xs text-gray-500">{upload.timestamp}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-gray-900">{upload.totalTransactions} transactions</p>
-                      <p className="text-xs text-gray-500">${upload.totalRevenue.toLocaleString()}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500 text-center py-4">No upload history</p>
-            )}
-          </div>
-        </div>
-
-        {/* Current Database Status */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Current Database Status</h3>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="text-center p-4 bg-blue-50 rounded-lg">
-              <FileText size={24} className="mx-auto text-blue-600 mb-2" />
-              <p className="text-2xl font-bold text-blue-600">{dashboardData.overview.totalTransactions.toLocaleString()}</p>
-              <p className="text-sm text-blue-800">Total Transactions</p>
-            </div>
-            <div className="text-center p-4 bg-green-50 rounded-lg">
-              <DollarSign size={24} className="mx-auto text-green-600 mb-2" />
-              <p className="text-2xl font-bold text-green-600">${(dashboardData.overview.totalRevenue / 1000000).toFixed(1)}M</p>
-              <p className="text-sm text-green-800">Total Revenue</p>
-            </div>
-            <div className="text-center p-4 bg-purple-50 rounded-lg">
-              <Users size={24} className="mx-auto text-purple-600 mb-2" />
-              <p className="text-2xl font-bold text-purple-600">{dashboardData.overview.uniqueCustomers.toLocaleString()}</p>
-              <p className="text-sm text-purple-800">Unique Customers</p>
-            </div>
-            <div className="text-center p-4 bg-orange-50 rounded-lg">
-              <MapPin size={24} className="mx-auto text-orange-600 mb-2" />
-              <p className="text-2xl font-bold text-orange-600">{dashboardData.locations.length}</p>
-              <p className="text-sm text-orange-800">Active Locations</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 };
 
 export default MakeInspiresDashboard;
