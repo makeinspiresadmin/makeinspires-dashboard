@@ -1,3 +1,14 @@
+/**
+ * MakeInspires Dashboard v45.3 - Main Component
+ * 
+ * STRUCTURE:
+ * - Authentication & State Management
+ * - Data Processing Functions (see dataProcessing.js reference)
+ * - Event Handlers  
+ * - UI Helper Functions
+ * - Main Render with Tab Content
+ */
+
 import React, { useState, useEffect } from 'react';
 import { 
   BarChart, 
@@ -40,6 +51,11 @@ import {
 } from 'lucide-react';
 
 const MakeInspiresDashboard = () => {
+  // ============================================================================
+  // STATE MANAGEMENT
+  // ============================================================================
+  
+  // Authentication states
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState('');
@@ -47,6 +63,7 @@ const MakeInspiresDashboard = () => {
   const [authError, setAuthError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  // Dashboard UI states
   const [activeTab, setActiveTab] = useState('overview');
   const [dateRange, setDateRange] = useState('all');
   const [customStartDate, setCustomStartDate] = useState('');
@@ -56,10 +73,12 @@ const MakeInspiresDashboard = () => {
   const [selectedCustomerType, setSelectedCustomerType] = useState('all');
   const [showFilterPanel, setShowFilterPanel] = useState(false);
 
+  // Upload states
   const [uploadStatus, setUploadStatus] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [processingStatus, setProcessingStatus] = useState('');
 
+  // Main dashboard data (starts empty)
   const [dashboardData, setDashboardData] = useState({
     overview: {
       totalRevenue: 0,
@@ -74,12 +93,18 @@ const MakeInspiresDashboard = () => {
     uploadHistory: []
   });
 
+  // Demo accounts for authentication
   const DEMO_ACCOUNTS = [
     { email: 'admin@makeinspires.com', password: 'password123', role: 'Admin', name: 'Admin User' },
     { email: 'manager@makeinspires.com', password: 'password123', role: 'Manager', name: 'Manager User' },
     { email: 'viewer@makeinspires.com', password: 'password123', role: 'Viewer', name: 'Viewer User' }
   ];
 
+  // ============================================================================
+  // UTILITY FUNCTIONS
+  // ============================================================================
+  
+  // Safe localStorage wrapper
   const safeLocalStorage = {
     get: (key) => {
       try {
@@ -142,6 +167,11 @@ const MakeInspiresDashboard = () => {
 
     initializeApp();
   }, []);
+
+  // ============================================================================
+  // DATA PROCESSING FUNCTIONS
+  // ============================================================================
+  // NOTE: These functions are also available as a reference file: dataProcessing.js
 
   const normalizeLocation = (location, providerName = '') => {
     if (!location && !providerName) return 'Mamaroneck';
@@ -447,6 +477,10 @@ const MakeInspiresDashboard = () => {
     };
   };
 
+  // ============================================================================
+  // EVENT HANDLERS
+  // ============================================================================
+
   const handleDataDeletion = () => {
     if (!user || (user.role?.toLowerCase() !== 'admin' && user.role?.toLowerCase() !== 'manager')) {
       setUploadStatus('❌ Access denied. Only Admins and Managers can delete data.');
@@ -574,6 +608,10 @@ const MakeInspiresDashboard = () => {
     safeLocalStorage.remove('makeinspiresUser');
   };
 
+  // ============================================================================
+  // DATA FILTERING & CALCULATIONS
+  // ============================================================================
+
   const getFilteredData = () => {
     let filteredMonthly = [...(dashboardData.monthlyData || [])];
     let filteredTransactions = [...(dashboardData.transactions || [])];
@@ -671,6 +709,10 @@ const MakeInspiresDashboard = () => {
     };
   };
 
+  // ============================================================================
+  // UI HELPER COMPONENTS & FORMATTERS
+  // ============================================================================
+
   const MetricCard = ({ title, value, subtitle, icon: Icon, color = "blue" }) => (
     <div className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow duration-200">
       <div className="p-4">
@@ -704,6 +746,10 @@ const MakeInspiresDashboard = () => {
   };
 
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#84CC16'];
+
+  // ============================================================================
+  // MAIN COMPONENT RENDER
+  // ============================================================================
 
   if (loading) {
     return (
