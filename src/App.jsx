@@ -385,7 +385,22 @@ const MakeInspiresDashboard = () => {
   // Calculate dashboard metrics from transactions
   const updateDashboardMetrics = (transactions) => {
     if (!transactions || transactions.length === 0) {
-      return dashboardData;
+      return {
+        overview: {
+          totalRevenue: 0,
+          totalTransactions: 0,
+          uniqueCustomers: 0,
+          avgTransactionValue: 0,
+          repeatCustomerRate: 0,
+          avgRevenuePerFamily: 0
+        },
+        programTypes: [],
+        locations: [],
+        monthlyTrends: [],
+        transactions: [],
+        lastUpdated: null,
+        dataStats: { totalTransactions: 0, totalRevenue: 0, uniqueCustomers: 0, locationCount: 0 }
+      };
     }
     
     // Calculate totals
@@ -943,20 +958,15 @@ const MakeInspiresDashboard = () => {
               {/* Location Performance */}
               <div className="bg-white rounded-lg shadow-sm border p-6">
                 <h3 className="text-lg font-semibold mb-4">Location Performance</h3>
-                <div className="space-y-4">
-                  {(filteredData.locations || []).map((location, index) => (
-                    <div key={location.location} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div>
-                        <h4 className="font-medium">{location.location}</h4>
-                        <p className="text-sm text-gray-600">{location.transactions.toLocaleString()} transactions</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-gray-900">{formatCurrency(location.revenue)}</p>
-                        <p className="text-sm text-gray-600">{location.marketShare}% share</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={filteredData.locations || []}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="location" />
+                    <YAxis tickFormatter={(value) => `${(value/1000).toFixed(0)}K`} />
+                    <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
+                    <Bar dataKey="revenue" fill="#3B82F6" />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </div>
 
@@ -1148,16 +1158,20 @@ const MakeInspiresDashboard = () => {
                           placeholder="Type DELETE"
                           className="border border-red-300 rounded px-3 py-2 text-sm"
                           onChange={(e) => {
+                            const deleteButton = e.target.nextElementSibling;
                             if (e.target.value === 'DELETE') {
                               e.target.style.backgroundColor = '#fee2e2';
+                              deleteButton.disabled = false;
                             } else {
                               e.target.style.backgroundColor = '';
+                              deleteButton.disabled = true;
                             }
                           }}
                         />
                         <button
                           onClick={handleDeleteAllData}
-                          className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700"
+                          disabled={true}
+                          className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 disabled:opacity-50"
                         >
                           Confirm Delete
                         </button>
