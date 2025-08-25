@@ -1323,7 +1323,13 @@ const MakeInspiresDashboard = () => {
 
         {activeTab === 'upload' && (
           <div className="space-y-6">
-            {(user.role === 'Admin' || user.role === 'Manager') ? (
+            {/* Debug info - remove after fixing */}
+            <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-4">
+              <p className="text-sm">Debug: User role = "{user?.role}" (Type: {typeof user?.role})</p>
+              <p className="text-sm">Check result: {user?.role === 'Admin' || user?.role === 'Manager' ? 'PASS' : 'FAIL'}</p>
+            </div>
+            
+            {(user?.role === 'Admin' || user?.role === 'Manager') ? (
               <>
                 <div className="bg-white rounded-lg shadow-sm border p-6">
                   <h3 className="text-lg font-semibold mb-4">Upload Transaction Data</h3>
