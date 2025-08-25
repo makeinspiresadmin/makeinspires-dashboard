@@ -216,26 +216,42 @@ function MakeInspiresDashboard() {
     return isNaN(date.getTime()) ? new Date() : date;
   };
 
-  // Normalize location names (FIXED: Enhanced NYC detection)
-  const normalizeLocation = (location) => {
-    if (!location) return 'Other';
-    
-    const loc = location.toLowerCase().trim();
-    
-    if (loc.includes('mamaroneck') || loc.includes('westchester')) {
-      return 'Mamaroneck';
-    } else if (loc.includes('nyc') || loc.includes('new york') || loc.includes('manhattan') || 
-               loc.includes('upper east side') || loc.includes('east side')) {
-      return 'NYC';
-    } else if (loc.includes('chappaqua')) {
-      return 'Chappaqua';
-    } else if (loc.includes('partner') || loc.includes('external')) {
-      return 'Partners';
-    }
-    
-    return location;
-  };
+ // Parse location from Provider Name column (authoritative source)
+const parseLocationFromProviderName = (providerName) => {
+  if (!providerName) return null;
+  
+  const provider = providerName.toLowerCase().trim();
+  
+  // Match patterns in Provider Name - using canonical names
+  if (provider.includes('upper east side') || 
+      provider.includes('ues') || 
+      provider.includes('u.e.s') ||
+      provider.includes('nyc') ||
+      provider.includes('manhattan') ||
+      provider.includes('new york')) {
+    return 'Upper East Side';
+  }
+  
+  if (provider.includes('chappaqua')) {
+    return 'Chappaqua';
+  }
+  
+  if (provider.includes('mamaroneck')) {
+    return 'Mamaroneck';
+  }
+  
+  return null; // No match found
+};
 
+// Location normalization - now uses Provider Name as authoritative source
+const normalizeLocation = (location, providerName = '') => {
+  // Always use Provider Name as authoritative source
+  const fromProvider = parseLocationFromProviderName(providerName);
+  if (fromProvider) return fromProvider;
+  
+  // If no Provider Name match, return Unknown
+  return 'Unknown';
+};
   // Categorize programs
   const categorizeProgram = (itemType, activityName = '') => {
     if (!itemType) return 'Other Programs';
@@ -381,7 +397,7 @@ function MakeInspiresDashboard() {
             ? values[optionalColumns['Provider Name']]?.toString().trim() || ''
             : '';
           
-          const normalizedLocation = normalizeLocation(location);
+          const normalizedLocation = normalizeLocation(location, providerName);
           const programCategory = categorizeProgram(itemTypes, activityName);
           
           transactions.push({
@@ -457,27 +473,31 @@ function MakeInspiresDashboard() {
       const monthlyMetrics = {};
       transactions.forEach(t => {
         const monthKey = t.orderDate.toISOString().slice(0, 7);
-        if (!monthlyMetrics[monthKey]) {
-          monthlyMetrics[monthKey] = { 
-            revenue: 0, 
-            transactions: 0,
-            customers: new Set(),
-            mamaroneck: 0,
-            nyc: 0,
-            chappaqua: 0,
-            partners: 0
-          };
-        }
+     if (!monthlyMetrics[monthKey]) {
+  monthlyMetrics[monthKey] = { 
+    revenue: 0, 
+    transactions: 0,
+    'mamaroneck': 0,
+    'upper east side': 0,
+    'chappaqua': 0,
+    'unknown': 0
+  };
+}
         monthlyMetrics[monthKey].revenue += t.netAmount;
         monthlyMetrics[monthKey].transactions += 1;
         monthlyMetrics[monthKey].customers.add(t.customerEmail);
         
-        // Location breakdown
-        const locationKey = t.location.toLowerCase().replace(/[^a-z]/g, '');
-        if (monthlyMetrics[monthKey][locationKey] !== undefined) {
-          monthlyMetrics[monthKey][locationKey] += t.netAmount;
-        }
-      });
+   // Map location to the correct key for monthly metrics
+const locationKeyMap = {
+  'Mamaroneck': 'mamaroneck',
+  'Upper East Side': 'upper east side',
+  'Chappaqua': 'chappaqua',
+  'Unknown': 'unknown'
+};
+const locationKey = locationKeyMap[t.location] || 'unknown';
+if (monthlyMetrics[monthKey][locationKey] !== undefined) {
+  monthlyMetrics[monthKey][locationKey] += t.netAmount;
+}
       
       const monthlyData = Object.entries(monthlyMetrics)
         .sort(([a], [b]) => a.localeCompare(b))
@@ -940,9 +960,10 @@ function MakeInspiresDashboard() {
                 <XAxis dataKey="month" />
                 <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(0)}K`} />
                 <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Revenue']} />
-                <Area type="monotone" dataKey="mamaroneck" stackId="1" stroke="#3B82F6" fill="#3B82F6" />
-                <Area type="monotone" dataKey="nyc" stackId="1" stroke="#10B981" fill="#10B981" />
-                <Area type="monotone" dataKey="chappaqua" stackId="1" stroke="#F59E0B" fill="#F59E0B" />
+             <Area type="monotone" dataKey="mamaroneck" stackId="1" stroke="#3B82F6" fill="#3B82F6" name="Mamaroneck" />
+<Area type="monotone" dataKey="upper east side" stackId="1" stroke="#10B981" fill="#10B981" name="Upper East Side" />
+<Area type="monotone" dataKey="chappaqua" stackId="1" stroke="#F59E0B" fill="#F59E0B" name="Chappaqua" />
+<Area type="monotone" dataKey="unknown" stackId="1" stroke="#6B7280" fill="#6B7280" name="Unknown" />
                 <Legend />
               </AreaChart>
             </ResponsiveContainer>
