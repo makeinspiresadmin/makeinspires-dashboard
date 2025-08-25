@@ -424,14 +424,12 @@ const MakeInspiresDashboard = () => {
                   onChange={(e) => setProgramType(e.target.value)}
                   className="w-full text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="all">All Programs</option>
-                  <option value="Semester Programs">Semester Programs</option>
-                  <option value="Weekly Classes">Weekly Classes</option>
-                  <option value="Drop-in Sessions">Drop-in Sessions</option>
-                  <option value="Birthday Parties">Birthday Parties</option>
-                  <option value="Camps & Intensives">Camps & Intensives</option>
-                  <option value="Workshops & MakeJams">Workshops & MakeJams</option>
-                  <option value="Other Programs">Other Programs</option>
+                 <option value="all">All Programs</option>
+                <option value="Parties">Parties</option>
+                <option value="Semester">Semester</option>
+                <option value="Camp">Camp</option>
+                <option value="Workshops">Workshops</option>
+                <option value="Private">Private</option>
                 </select>
               </div>
               
