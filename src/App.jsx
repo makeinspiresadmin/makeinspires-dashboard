@@ -299,6 +299,9 @@ function MakeInspiresDashboard() {
       let processedCount = 0;
       let duplicateCount = 0;
       let filteredCount = 0;
+      let totalCsvAmount = 0; // Track total from CSV for debugging
+      let negativeAmountCount = 0;
+      let failedPaymentCount = 0;
       
       for (let i = 1; i < lines.length; i++) {
         try {
@@ -312,12 +315,6 @@ function MakeInspiresDashboard() {
           const paymentStatus = values[requiredColumns['Payment Status']]?.toString().trim();
           const itemTypes = values[requiredColumns['Item Types']]?.toString().trim() || '';
           
-          // Enhanced filtering logic with detailed logging
-          if (!orderId || !orderDate || !customerEmail || paymentStatus !== 'Succeeded') {
-            filteredCount++;
-            continue;
-          }
-          
           // Enhanced number parsing with precision handling
           let netAmount = 0;
           if (typeof netAmountRaw === 'number') {
@@ -328,8 +325,24 @@ function MakeInspiresDashboard() {
             netAmount = parseFloat(cleanAmount);
           }
           
-          if (isNaN(netAmount) || netAmount <= 0) {
+          // DEBUGGING: Track all amounts from CSV regardless of filters
+          if (!isNaN(netAmount)) {
+            totalCsvAmount += netAmount;
+          }
+          
+          // Enhanced filtering logic with detailed logging
+          if (!orderId || !orderDate || !customerEmail) {
             filteredCount++;
+            continue;
+          }
+          
+          if (paymentStatus !== 'Succeeded') {
+            failedPaymentCount++;
+            continue;
+          }
+          
+          if (isNaN(netAmount) || netAmount <= 0) {
+            negativeAmountCount++;
             continue;
           }
           
