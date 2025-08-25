@@ -580,7 +580,7 @@ const MakeInspiresDashboard = () => {
     const file = event.target.files[0];
     if (!file) return;
 
-    if (!user || (user.role !== 'Admin' && user.role !== 'Manager')) {
+    if (!user || (user.role?.toLowerCase() !== 'admin' && user.role?.toLowerCase() !== 'manager')) {
       setUploadStatus('❌ Access denied. Only Admins and Managers can upload files.');
       setTimeout(() => setUploadStatus(''), 5000);
       return;
@@ -1323,13 +1323,7 @@ const MakeInspiresDashboard = () => {
 
         {activeTab === 'upload' && (
           <div className="space-y-6">
-            {/* Debug info - remove after fixing */}
-            <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-4">
-              <p className="text-sm">Debug: User role = "{user?.role}" (Type: {typeof user?.role})</p>
-              <p className="text-sm">Check result: {user?.role === 'Admin' || user?.role === 'Manager' ? 'PASS' : 'FAIL'}</p>
-            </div>
-            
-            {(user?.role === 'Admin' || user?.role === 'Manager') ? (
+            {(user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'manager') ? (
               <>
                 <div className="bg-white rounded-lg shadow-sm border p-6">
                   <h3 className="text-lg font-semibold mb-4">Upload Transaction Data</h3>
