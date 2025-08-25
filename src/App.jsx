@@ -449,7 +449,7 @@ const MakeInspiresDashboard = () => {
 
   const handleDataDeletion = () => {
     if (!user || (user.role?.toLowerCase() !== 'admin' && user.role?.toLowerCase() !== 'manager')) {
-      setUploadStatus('Access denied. Only Admins and Managers can delete data.');
+      setUploadStatus('❌ Access denied. Only Admins and Managers can delete data.');
       setTimeout(() => setUploadStatus(''), 5000);
       return;
     }
@@ -469,13 +469,15 @@ const MakeInspiresDashboard = () => {
         uploadHistory: [...(dashboardData.uploadHistory || []), {
           filename: 'DATA_DELETION',
           uploadDate: new Date().toISOString(),
+          newTransactions: 0,
+          duplicatesSkipped: 0,
           action: 'All data deleted'
         }]
       };
 
       setDashboardData(emptyDashboard);
       safeLocalStorage.set('makeinspiresData', emptyDashboard);
-      setUploadStatus('All data has been deleted successfully.');
+      setUploadStatus('✅ All data has been deleted successfully.');
       setTimeout(() => setUploadStatus(''), 5000);
     }
   };
@@ -485,19 +487,19 @@ const MakeInspiresDashboard = () => {
     if (!file) return;
 
     if (!user || (user.role?.toLowerCase() !== 'admin' && user.role?.toLowerCase() !== 'manager')) {
-      setUploadStatus('Access denied. Only Admins and Managers can upload files.');
+      setUploadStatus('❌ Access denied. Only Admins and Managers can upload files.');
       setTimeout(() => setUploadStatus(''), 5000);
       return;
     }
     
     if (!file.name.toLowerCase().endsWith('.csv')) {
-      setUploadStatus('Please select a CSV file.');
+      setUploadStatus('❌ Please select a CSV file.');
       setTimeout(() => setUploadStatus(''), 5000);
       return;
     }
     
     setIsUploading(true);
-    setUploadStatus('Processing file...');
+    setUploadStatus('🔄 Processing file...');
     
     try {
       const result = await processCSVFile(file);
@@ -530,11 +532,11 @@ const MakeInspiresDashboard = () => {
       setDashboardData(updatedDashboard);
       safeLocalStorage.set('makeinspiresData', updatedDashboard);
       
-      setUploadStatus(`Upload complete! Added ${filteredTransactions.length} new transactions.`);
+      setUploadStatus(`✅ Upload complete! Added ${filteredTransactions.length} new transactions.`);
       setTimeout(() => setUploadStatus(''), 8000);
       
     } catch (error) {
-      setUploadStatus(`Upload failed: ${error.message}`);
+      setUploadStatus(`❌ Upload failed: ${error.message}`);
       setTimeout(() => setUploadStatus(''), 8000);
     } finally {
       setIsUploading(false);
@@ -678,177 +680,6 @@ const MakeInspiresDashboard = () => {
             <p className="text-2xl font-bold text-blue-600">{value}</p>
             {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
           </div>
-
-      {/* Filters Bar */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-center justify-between py-3 gap-4">
-            <div className="flex flex-wrap items-center space-x-4">
-              <div className="flex space-x-2">
-                {['7d', '30d', '90d', '6m', '12m', 'ytd', 'all'].map(range => (
-                  <button
-                    key={range}
-                    onClick={() => setDateRange(range)}
-                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                      dateRange === range
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                    }`}
-                  >
-                    {range.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                onClick={() => setShowFilterPanel(!showFilterPanel)}
-                className="flex items-center space-x-2 px-3 py-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
-              >
-                <Filter size={16} />
-                <span className="text-sm">Filters</span>
-                <ChevronDown size={14} className={`transition-transform ${showFilterPanel ? 'rotate-180' : ''}`} />
-              </button>
-            </div>
-
-            <div className="text-sm text-gray-500">
-              {filteredData.overview.totalTransactions.toLocaleString()} transactions • {formatCurrency(filteredData.overview.totalRevenue)}
-            </div>
-          </div>
-
-          {showFilterPanel && (
-            <div className="border-t border-gray-200 py-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                  <select
-                    value={selectedLocation}
-                    onChange={(e) => setSelectedLocation(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="all">All Locations</option>
-                    <option value="mamaroneck">Mamaroneck</option>
-                    <option value="nyc">NYC</option>
-                    <option value="chappaqua">Chappaqua</option>
-                    <option value="partners">Partners</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Program Type</label>
-                  <select
-                    value={selectedProgramType}
-                    onChange={(e) => setSelectedProgramType(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="all">All Programs</option>
-                    <option value="semester">Semester Programs</option>
-                    <option value="weekly">Weekly Programs</option>
-                    <option value="dropin">Drop-in Sessions</option>
-                    <option value="party">Birthday Parties</option>
-                    <option value="camp">Summer Camps</option>
-                    <option value="workshop">Workshops & MakeJams</option>
-                    <option value="other">Other Programs</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Customer Type</label>
-                  <select
-                    value={selectedCustomerType}
-                    onChange={(e) => setSelectedCustomerType(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="all">All Customers</option>
-                    <option value="new">New Customers</option>
-                    <option value="returning">Returning Customers</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Custom Date Range</label>
-                  <div className="flex space-x-2">
-                    <input
-                      type="date"
-                      value={customStartDate}
-                      onChange={(e) => setCustomStartDate(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                    <input
-                      type="date"
-                      value={customEndDate}
-                      onChange={(e) => setCustomEndDate(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-        {activeTab === 'partners' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
-              <MapPin size={48} className="mx-auto text-gray-400 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Partner Programs</h3>
-              <p className="text-gray-600">Coming soon - Partner analytics and performance tracking</p>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'yoy' && (
-          <div className="space-y-6">
-            {dashboardData.transactions.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
-                <TrendingUp size={48} className="mx-auto text-gray-400 mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No YoY Data</h3>
-                <p className="text-gray-600">Upload transaction data to view year-over-year trends.</p>
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg shadow-sm border p-6">
-                <h3 className="text-lg font-semibold mb-4">Year-over-Year Growth</h3>
-                <ResponsiveContainer width="100%" height={400}>
-                  <LineChart data={filteredData.monthlyData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" tickFormatter={formatMonth} />
-                    <YAxis tickFormatter={(value) => `${(value/1000).toFixed(0)}K`} />
-                    <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
-                    <Legend />
-                    <Line type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={2} name="Monthly Revenue" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'predictive' && (
-          <div className="space-y-6">
-            {dashboardData.transactions.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
-                <Target size={48} className="mx-auto text-gray-400 mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No Predictive Data</h3>
-                <p className="text-gray-600">Upload transaction data to view revenue forecasting.</p>
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg shadow-sm border p-6">
-                <h3 className="text-lg font-semibold mb-4">Revenue Forecasting</h3>
-                <p className="text-gray-600 mb-4">Predictive analytics based on historical trends and seasonal patterns.</p>
-                <ResponsiveContainer width="100%" height={400}>
-                  <LineChart data={filteredData.monthlyData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" tickFormatter={formatMonth} />
-                    <YAxis tickFormatter={(value) => `${(value/1000).toFixed(0)}K`} />
-                    <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
-                    <Legend />
-                    <Line type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={2} name="Historical Revenue" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </div>
-        )}
-        </div>
-      </div>
           <div className="p-3 rounded-full bg-blue-100 ml-2">
             <Icon size={20} className="text-blue-600" />
           </div>
@@ -1034,6 +865,113 @@ const MakeInspiresDashboard = () => {
         </div>
       </div>
 
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-wrap items-center justify-between py-3 gap-4">
+            <div className="flex flex-wrap items-center space-x-4">
+              <div className="flex space-x-2">
+                {['7d', '30d', '90d', '6m', '12m', 'ytd', 'all'].map(range => (
+                  <button
+                    key={range}
+                    onClick={() => setDateRange(range)}
+                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                      dateRange === range
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    }`}
+                  >
+                    {range.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => setShowFilterPanel(!showFilterPanel)}
+                className="flex items-center space-x-2 px-3 py-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+              >
+                <Filter size={16} />
+                <span className="text-sm">Filters</span>
+                <ChevronDown size={14} className={`transition-transform ${showFilterPanel ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
+
+            <div className="text-sm text-gray-500">
+              {filteredData.overview.totalTransactions.toLocaleString()} transactions • {formatCurrency(filteredData.overview.totalRevenue)}
+            </div>
+          </div>
+
+          {showFilterPanel && (
+            <div className="border-t border-gray-200 py-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                  <select
+                    value={selectedLocation}
+                    onChange={(e) => setSelectedLocation(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Locations</option>
+                    <option value="mamaroneck">Mamaroneck</option>
+                    <option value="nyc">NYC</option>
+                    <option value="chappaqua">Chappaqua</option>
+                    <option value="partners">Partners</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Program Type</label>
+                  <select
+                    value={selectedProgramType}
+                    onChange={(e) => setSelectedProgramType(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Programs</option>
+                    <option value="semester">Semester Programs</option>
+                    <option value="weekly">Weekly Programs</option>
+                    <option value="dropin">Drop-in Sessions</option>
+                    <option value="party">Birthday Parties</option>
+                    <option value="camp">Summer Camps</option>
+                    <option value="workshop">Workshops & MakeJams</option>
+                    <option value="other">Other Programs</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Customer Type</label>
+                  <select
+                    value={selectedCustomerType}
+                    onChange={(e) => setSelectedCustomerType(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Customers</option>
+                    <option value="new">New Customers</option>
+                    <option value="returning">Returning Customers</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Custom Date Range</label>
+                  <div className="flex space-x-2">
+                    <input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                    <input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {activeTab === 'overview' && (
           <div className="space-y-6">
@@ -1204,6 +1142,59 @@ const MakeInspiresDashboard = () => {
           </div>
         )}
 
+        {activeTab === 'yoy' && (
+          <div className="space-y-6">
+            {dashboardData.transactions.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
+                <TrendingUp size={48} className="mx-auto text-gray-400 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No YoY Data</h3>
+                <p className="text-gray-600">Upload transaction data to view year-over-year trends.</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow-sm border p-6">
+                <h3 className="text-lg font-semibold mb-4">Year-over-Year Growth</h3>
+                <ResponsiveContainer width="100%" height={400}>
+                  <LineChart data={filteredData.monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" tickFormatter={formatMonth} />
+                    <YAxis tickFormatter={(value) => `${(value/1000).toFixed(0)}K`} />
+                    <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
+                    <Legend />
+                    <Line type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={2} name="Monthly Revenue" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'predictive' && (
+          <div className="space-y-6">
+            {dashboardData.transactions.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
+                <Target size={48} className="mx-auto text-gray-400 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No Predictive Data</h3>
+                <p className="text-gray-600">Upload transaction data to view revenue forecasting.</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow-sm border p-6">
+                <h3 className="text-lg font-semibold mb-4">Revenue Forecasting</h3>
+                <p className="text-gray-600 mb-4">Predictive analytics based on historical trends and seasonal patterns.</p>
+                <ResponsiveContainer width="100%" height={400}>
+                  <LineChart data={filteredData.monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" tickFormatter={formatMonth} />
+                    <YAxis tickFormatter={(value) => `${(value/1000).toFixed(0)}K`} />
+                    <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
+                    <Legend />
+                    <Line type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={2} name="Historical Revenue" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === 'customers' && (
           <div className="space-y-6">
             {dashboardData.transactions.length === 0 ? (
@@ -1231,6 +1222,16 @@ const MakeInspiresDashboard = () => {
                 />
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'partners' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
+              <MapPin size={48} className="mx-auto text-gray-400 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Partner Programs</h3>
+              <p className="text-gray-600">Coming soon - Partner analytics and performance tracking</p>
+            </div>
           </div>
         )}
 
@@ -1267,13 +1268,13 @@ const MakeInspiresDashboard = () => {
 
                     {uploadStatus && (
                       <div className={`p-4 rounded-lg ${
-                        uploadStatus.includes('complete') ? 'bg-green-50 text-green-800' :
-                        uploadStatus.includes('failed') || uploadStatus.includes('denied') ? 'bg-red-50 text-red-800' :
+                        uploadStatus.includes('✅') ? 'bg-green-50 text-green-800' :
+                        uploadStatus.includes('❌') ? 'bg-red-50 text-red-800' :
                         'bg-blue-50 text-blue-800'
                       }`}>
                         <div className="flex items-center space-x-2">
-                          {uploadStatus.includes('complete') ? <CheckCircle size={20} /> :
-                           uploadStatus.includes('failed') || uploadStatus.includes('denied') ? <AlertCircle size={20} /> :
+                          {uploadStatus.includes('✅') ? <CheckCircle size={20} /> :
+                           uploadStatus.includes('❌') ? <AlertCircle size={20} /> :
                            <RefreshCw size={20} className="animate-spin" />}
                           <span>{uploadStatus}</span>
                         </div>
