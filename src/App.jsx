@@ -64,7 +64,12 @@ const MakeInspiresDashboard = () => {
   useEffect(() => {
     const savedUser = localStorage.getItem('makeinspiresUser');
     if (savedUser) {
-      setUser(JSON.parse(savedUser));
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (e) {
+        console.error('Error loading user session:', e);
+        localStorage.removeItem('makeinspiresUser');
+      }
     }
   }, []);
   
