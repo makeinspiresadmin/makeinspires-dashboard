@@ -78,7 +78,6 @@ const MakeInspiresDashboard = () => {
     
     setTimeout(() => {
       const demoAccounts = {
-        'travis@makeinspires.com': { role: 'admin', name: 'Travis Admin', password: 'demo123' },
         'admin@makeinspires.com': { role: 'admin', name: 'Admin User', password: 'demo123' },
         'manager@makeinspires.com': { role: 'manager', name: 'Manager User', password: 'demo123' },
         'viewer@makeinspires.com': { role: 'viewer', name: 'Viewer User', password: 'demo123' }
@@ -745,7 +744,7 @@ const MakeInspiresDashboard = () => {
           
           <div className="mt-6 text-sm text-gray-600">
             <p className="font-semibold mb-2">Demo Accounts:</p>
-            <p><strong>Admin:</strong> travis@makeinspires.com / demo123</p>
+            <p><strong>Admin:</strong> admin@makeinspires.com / demo123</p>
             <p><strong>Manager:</strong> manager@makeinspires.com / demo123</p>
             <p><strong>Viewer:</strong> viewer@makeinspires.com / demo123</p>
           </div>
