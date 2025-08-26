@@ -1,72 +1,17 @@
-// Main Dashboard Component
-const MakeInspiresDashboard = () => {
-  // Authentication state
-  const [user, setUser] = useState(null);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [authError, setAuthError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  
-  // Dashboard state
-  const [activeTab, setActiveTab] = useState('overview');
-  const [dateRange, setDateRange] = useState('all');
-  const [location, setLocation] = useState('all');
-  const [programType, setProgramType] = useState('all');
-  const [showFilters, setShowFilters] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState(null);
-  const [customStartDate, setCustomStartDate] = useState('');
-  const [customEndDate, setCustomEndDate] = useState('');
-    // Dashboard data
-  const [dashboardData, setDashboardData] = useState({
-    overview: {
-      totalRevenue: 0,
-      uniqueCustomers: 0,
-      totalTransactions: 0,
-      averageOrderValue: 0,
-      conversionRate: 0,
-      customerRetention: 0
-    },
-    programData: [],
-    locationData: [],
-    monthlyRevenue: [],
-    transactions: [],
-    uploadHistory: [],
-    lastUpdated: null
-  });
-  
-  // Calculate data source date range for display
-  const dataSourceDateRange = useMemo(() => {
-    if (!dashboardData.transactions || dashboardData.transactions.length === 0) {
-      return '';
-    }
-    
-    const dates = dashboardData.transactions.map(t => new Date(t.orderDate));
-    const minDate = new Date(Math.min(...dates));
-    const maxDate = new Date(Math.max(...dates));
-    
-    const formatMonth = (date) => {
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      return months[date.getMonth()];
-    };
-    
-    return ` (${formatMonth(minDate)} ${minDate.getFullYear()} - ${formatMonth(maxDate)} ${maxDate.getFullYear()})`;
-  }, [dashboardData.transactions]);/**
+/**
  * App.jsx - MakeInspires Dashboard v46.0
  * Main application file with authentication, layout, and state management
- * Split from monolithic file for better maintainability
  * 
  * CHANGELOG v46.0:
- * - Updated program category filters to match new categories:
- *   Old: Party, Semester, Weekly, Dropin, Camp, Workshop, Other
- *   New: Parties, Semester, Camps, Workshops, Private, Other
- * - No other changes made - all existing features preserved
+ * - Updated program category filters
+ * - Added date range filtering  
+ * - Added data source date range display
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   User, Lock, Activity, TrendingUp, Calendar, Brain, Users, 
-  Globe, Upload, LogOut, ChevronDown, X, RefreshCw, Eye, EyeOff 
+  Globe, Upload, LogOut, ChevronDown, Eye, EyeOff 
 } from 'lucide-react';
 import { DashboardTabs } from './Tabs';
 import { filterTransactions, calculateMetrics } from './Utils';
@@ -104,28 +49,40 @@ const MakeInspiresDashboard = () => {
   const [customEndDate, setCustomEndDate] = useState('');
   
   // Dashboard data
-  const [dashboardData, setDashboardData] = useState(() => {
-    const savedData = localStorage.getItem('dashboardData');
-    if (savedData) {
-      return JSON.parse(savedData);
-    }
-    return {
-      overview: {
-        totalRevenue: 0,
-        uniqueCustomers: 0,
-        totalTransactions: 0,
-        averageOrderValue: 0,
-        conversionRate: 0,
-        customerRetention: 0
-      },
-      programData: [],
-      locationData: [],
-      monthlyRevenue: [],
-      transactions: [],
-      uploadHistory: [],
-      lastUpdated: null
-    };
+  const [dashboardData, setDashboardData] = useState({
+    overview: {
+      totalRevenue: 0,
+      uniqueCustomers: 0,
+      totalTransactions: 0,
+      averageOrderValue: 0,
+      conversionRate: 0,
+      customerRetention: 0
+    },
+    programData: [],
+    locationData: [],
+    monthlyRevenue: [],
+    transactions: [],
+    uploadHistory: [],
+    lastUpdated: null
   });
+  
+  // Calculate data source date range for display
+  const dataSourceDateRange = useMemo(() => {
+    if (!dashboardData.transactions || dashboardData.transactions.length === 0) {
+      return '';
+    }
+    
+    const dates = dashboardData.transactions.map(t => new Date(t.orderDate));
+    const minDate = new Date(Math.min(...dates));
+    const maxDate = new Date(Math.max(...dates));
+    
+    const formatMonth = (date) => {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return months[date.getMonth()];
+    };
+    
+    return ` (${formatMonth(minDate)} ${minDate.getFullYear()} - ${formatMonth(maxDate)} ${maxDate.getFullYear()})`;
+  }, [dashboardData.transactions]);
   
   // Load user and data from localStorage on mount
   useEffect(() => {
@@ -309,15 +266,6 @@ const MakeInspiresDashboard = () => {
             </div>
             
             <div className="flex items-center space-x-4">
-              {/* Filters Button */}
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center space-x-2 px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                <ChevronDown className={`h-4 w-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-                <span>Filters</span>
-              </button>
-              
               {/* User Menu */}
               <div className="flex items-center space-x-3">
                 <div className="text-right">
@@ -335,52 +283,6 @@ const MakeInspiresDashboard = () => {
           </div>
         </div>
       </div>
-      
-      {/* Advanced Filters Panel */}
-      {showFilters && (
-        <div className="bg-white border-b border-gray-200 shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <h3 className="text-sm font-medium text-gray-700 mb-3">Advanced Filters</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Additional filter options can go here */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Customer Type</label>
-                <select className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md">
-                  <option value="all">All Customers</option>
-                  <option value="new">New Customers</option>
-                  <option value="returning">Returning Customers</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Revenue Range</label>
-                <select className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md">
-                  <option value="all">All Ranges</option>
-                  <option value="0-100">$0 - $100</option>
-                  <option value="100-500">$100 - $500</option>
-                  <option value="500+">$500+</option>
-                </select>
-              </div>
-              
-              <div className="flex items-end space-x-2">
-                <button
-                  onClick={() => {
-                    setDateRange('all');
-                    setLocation('all');
-                    setProgramType('all');
-                    setCustomStartDate('');
-                    setCustomEndDate('');
-                    setShowFilters(false);
-                  }}
-                  className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
-                >
-                  Reset All
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
       
       {/* Tab Navigation */}
       <div className="bg-white border-b border-gray-200">
@@ -485,6 +387,52 @@ const MakeInspiresDashboard = () => {
           </div>
         </div>
       </div>
+      
+      {/* Advanced Filters Panel */}
+      {showFilters && (
+        <div className="bg-white border-b border-gray-200 shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Advanced Filters</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Additional filter options can go here */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Customer Type</label>
+                <select className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md">
+                  <option value="all">All Customers</option>
+                  <option value="new">New Customers</option>
+                  <option value="returning">Returning Customers</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Revenue Range</label>
+                <select className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md">
+                  <option value="all">All Ranges</option>
+                  <option value="0-100">$0 - $100</option>
+                  <option value="100-500">$100 - $500</option>
+                  <option value="500+">$500+</option>
+                </select>
+              </div>
+              
+              <div className="flex items-end space-x-2">
+                <button
+                  onClick={() => {
+                    setDateRange('all');
+                    setLocation('all');
+                    setProgramType('all');
+                    setCustomStartDate('');
+                    setCustomEndDate('');
+                    setShowFilters(false);
+                  }}
+                  className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+                >
+                  Reset All
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
