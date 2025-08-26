@@ -1,4 +1,28 @@
-// Calculate data source date range for display
+// Dashboard data
+  const [dashboardData, setDashboardData] = useState(() => {
+    const savedData = localStorage.getItem('dashboardData');
+    if (savedData) {
+      return JSON.parse(savedData);
+    }
+    return {
+      overview: {
+        totalRevenue: 0,
+        uniqueCustomers: 0,
+        totalTransactions: 0,
+        averageOrderValue: 0,
+        conversionRate: 0,
+        customerRetention: 0
+      },
+      programData: [],
+      locationData: [],
+      monthlyRevenue: [],
+      transactions: [],
+      uploadHistory: [],
+      lastUpdated: null
+    };
+  });
+  
+  // Calculate data source date range for display
   const dataSourceDateRange = useMemo(() => {
     if (!dashboardData.transactions || dashboardData.transactions.length === 0) {
       return '';
