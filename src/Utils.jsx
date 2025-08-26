@@ -545,8 +545,7 @@ export const calculateMetrics = (transactions) => {
   };
 };
 
-// Export all utility functions as default object
-// This allows both named imports and default import
+// Export all functions
 export default {
   filterTransactions,
   processCSVFile,
