@@ -1,4 +1,20 @@
-/**
+// Calculate data source date range for display
+  const dataSourceDateRange = useMemo(() => {
+    if (!dashboardData.transactions || dashboardData.transactions.length === 0) {
+      return '';
+    }
+    
+    const dates = dashboardData.transactions.map(t => new Date(t.orderDate));
+    const minDate = new Date(Math.min(...dates));
+    const maxDate = new Date(Math.max(...dates));
+    
+    const formatMonth = (date) => {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return months[date.getMonth()];
+    };
+    
+    return ` (${formatMonth(minDate)} ${minDate.getFullYear()} - ${formatMonth(maxDate)} ${maxDate.getFullYear()})`;
+  }, [dashboardData.transactions]);/**
  * App.jsx - MakeInspires Dashboard v46.0
  * Main application file with authentication, layout, and state management
  * Split from monolithic file for better maintainability
@@ -243,7 +259,7 @@ const MakeInspiresDashboard = () => {
             <div className="flex items-center">
               <MakeInspiresLogo size={32} />
               <h1 className="ml-3 text-xl font-semibold text-gray-900">MakeInspires Dashboard</h1>
-              <span className="ml-3 text-xs text-gray-500">v46.0</span>
+              <span className="ml-3 text-xs text-gray-500">v46.0{dataSourceDateRange}</span>
             </div>
             
             <div className="flex items-center space-x-4">
@@ -274,65 +290,32 @@ const MakeInspiresDashboard = () => {
         </div>
       </div>
       
-      {/* Filters Panel */}
+      {/* Advanced Filters Panel */}
       {showFilters && (
         <div className="bg-white border-b border-gray-200 shadow-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {/* Date Range */}
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Advanced Filters</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Additional filter options can go here */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Date Range</label>
-                <select
-                  value={dateRange}
-                  onChange={(e) => setDateRange(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="all">All Time</option>
-                  <option value="7d">Last 7 Days</option>
-                  <option value="30d">Last 30 Days</option>
-                  <option value="90d">Last 90 Days</option>
-                  <option value="6m">Last 6 Months</option>
-                  <option value="12m">Last 12 Months</option>
-                  <option value="ytd">Year to Date</option>
-                  <option value="custom">Custom Range</option>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Customer Type</label>
+                <select className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md">
+                  <option value="all">All Customers</option>
+                  <option value="new">New Customers</option>
+                  <option value="returning">Returning Customers</option>
                 </select>
               </div>
               
-              {/* Location */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Location</label>
-                <select
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="all">All Locations</option>
-                  <option value="Mamaroneck">Mamaroneck</option>
-                  <option value="NYC">NYC</option>
-                  <option value="Chappaqua">Chappaqua</option>
-                  <option value="Partner">Partners</option>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Revenue Range</label>
+                <select className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md">
+                  <option value="all">All Ranges</option>
+                  <option value="0-100">$0 - $100</option>
+                  <option value="100-500">$100 - $500</option>
+                  <option value="500+">$500+</option>
                 </select>
               </div>
               
-              {/* Program Type - Updated Categories */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Program Type</label>
-                <select
-                  value={programType}
-                  onChange={(e) => setProgramType(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="all">All Programs</option>
-                  <option value="Parties">Parties</option>
-                  <option value="Semester">Semester</option>
-                  <option value="Camps">Camps</option>
-                  <option value="Workshops">Workshops</option>
-                  <option value="Private">Private</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              
-              {/* Filter Actions */}
               <div className="flex items-end space-x-2">
                 <button
                   onClick={() => {
@@ -341,43 +324,14 @@ const MakeInspiresDashboard = () => {
                     setProgramType('all');
                     setCustomStartDate('');
                     setCustomEndDate('');
+                    setShowFilters(false);
                   }}
                   className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
                 >
-                  Reset
-                </button>
-                <button
-                  onClick={() => setShowFilters(false)}
-                  className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  Apply
+                  Reset All
                 </button>
               </div>
             </div>
-            
-            {/* Custom Date Range */}
-            {dateRange === 'custom' && (
-              <div className="mt-4 grid grid-cols-2 gap-4 max-w-md">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
-                  <input
-                    type="date"
-                    value={customStartDate}
-                    onChange={(e) => setCustomStartDate(e.target.value)}
-                    className="w-full px-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
-                  <input
-                    type="date"
-                    value={customEndDate}
-                    onChange={(e) => setCustomEndDate(e.target.value)}
-                    className="w-full px-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -401,6 +355,88 @@ const MakeInspiresDashboard = () => {
               </button>
             ))}
           </nav>
+        </div>
+      </div>
+      
+      {/* Filter Bar */}
+      <div className="bg-gray-50 border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <div className="flex items-center space-x-4">
+            {/* Date Range Dropdown */}
+            <select
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value)}
+              className="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              <option value="all">All Time</option>
+              <option value="7d">Last 7 Days</option>
+              <option value="30d">Last 30 Days</option>
+              <option value="90d">Last 90 Days</option>
+              <option value="6m">Last 6 Months</option>
+              <option value="12m">Last 12 Months</option>
+              <option value="ytd">Year to Date</option>
+              <option value="custom">Custom Range</option>
+            </select>
+            
+            {/* Location Dropdown */}
+            <select
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              <option value="all">All Locations</option>
+              <option value="Mamaroneck">Mamaroneck</option>
+              <option value="NYC">NYC</option>
+              <option value="Chappaqua">Chappaqua</option>
+              <option value="Partner">Partners</option>
+              <option value="Other">Other</option>
+            </select>
+            
+            {/* Program Type Dropdown */}
+            <select
+              value={programType}
+              onChange={(e) => setProgramType(e.target.value)}
+              className="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              <option value="all">All Programs</option>
+              <option value="Parties">Parties</option>
+              <option value="Semester">Semester</option>
+              <option value="Camps">Camps</option>
+              <option value="Workshops">Workshops</option>
+              <option value="Private">Private</option>
+              <option value="Other">Other</option>
+            </select>
+            
+            {/* Advanced Filters Button */}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="text-sm text-gray-600 hover:text-gray-900 flex items-center space-x-1"
+            >
+              <span>Advanced Filters</span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {/* Custom Date Range Inputs (show inline when custom is selected) */}
+            {dateRange === 'custom' && (
+              <>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="text-sm border border-gray-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="text-gray-500 text-sm">to</span>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="text-sm border border-gray-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
       
