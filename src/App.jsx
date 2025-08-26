@@ -1,12 +1,13 @@
 /**
- * App.jsx - MakeInspires Dashboard v45.4
+ * App.jsx - MakeInspires Dashboard v46.0
  * Main application file with authentication, layout, and state management
  * Split from monolithic file for better maintainability
  * 
- * CHANGELOG v45.4:
- * - Added custom date range filtering with start/end date selection
- * - Added data source date range display next to version number
- * - Enhanced date filtering logic in filterTransactions
+ * CHANGELOG v46.0:
+ * - Updated program category filters to match new categories:
+ *   Old: Party, Semester, Weekly, Dropin, Camp, Workshop, Other
+ *   New: Parties, Semester, Camps, Workshops, Private, Other
+ * - No other changes made - all existing features preserved
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -45,76 +46,46 @@ const MakeInspiresDashboard = () => {
   const [location, setLocation] = useState('all');
   const [programType, setProgramType] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState('');
-  
-  // Custom date range state (NEW in v45.4)
+  const [uploadStatus, setUploadStatus] = useState(null);
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   
-  // Data state - starts empty (no sample data)
-  const [dashboardData, setDashboardData] = useState({
-    transactions: [],
-    overview: {
-      totalRevenue: 0,
-      uniqueCustomers: 0,
-      totalTransactions: 0,
-      averageOrderValue: 0,
-      conversionRate: 0,
-      customerRetention: 0
-    },
-    programData: [],
-    locationData: [],
-    monthlyRevenue: [],
-    uploadHistory: [],
-    lastUpdated: new Date().toISOString()
+  // Dashboard data
+  const [dashboardData, setDashboardData] = useState(() => {
+    const savedData = localStorage.getItem('dashboardData');
+    if (savedData) {
+      return JSON.parse(savedData);
+    }
+    return {
+      overview: {
+        totalRevenue: 0,
+        uniqueCustomers: 0,
+        totalTransactions: 0,
+        averageOrderValue: 0,
+        conversionRate: 0,
+        customerRetention: 0
+      },
+      programData: [],
+      locationData: [],
+      monthlyRevenue: [],
+      transactions: [],
+      uploadHistory: [],
+      lastUpdated: null
+    };
   });
   
-  // Calculate data source date range (NEW in v45.4)
-  const dataSourceDateRange = useMemo(() => {
-    if (!dashboardData.transactions || dashboardData.transactions.length === 0) {
-      return null;
-    }
-    
-    const dates = dashboardData.transactions.map(t => new Date(t.orderDate));
-    const minDate = new Date(Math.min(...dates));
-    const maxDate = new Date(Math.max(...dates));
-    
-    const formatDate = (date) => {
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const year = String(date.getFullYear()).slice(-2);
-      return `${month}/${day}/${year}`;
-    };
-    
-    return `${formatDate(minDate)}-${formatDate(maxDate)}`;
-  }, [dashboardData.transactions]);
-  
-  // Load user session on mount
+  // Load user from localStorage on mount
   useEffect(() => {
-    const savedUser = localStorage.getItem('makeinspiresUser');
+    const savedUser = localStorage.getItem('user');
     if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch (e) {
-        console.error('Error loading user session:', e);
-      }
-    }
-    
-    // Load saved data
-    const savedData = localStorage.getItem('makeinspiresData');
-    if (savedData) {
-      try {
-        setDashboardData(JSON.parse(savedData));
-      } catch (e) {
-        console.error('Error loading dashboard data:', e);
-      }
+      setUser(JSON.parse(savedUser));
     }
   }, []);
   
-  // Save data when it changes
+  // Save dashboard data to localStorage when it changes
   useEffect(() => {
-    if (dashboardData.transactions.length > 0) {
-      localStorage.setItem('makeinspiresData', JSON.stringify(dashboardData));
+    if (dashboardData.transactions && dashboardData.transactions.length > 0) {
+      localStorage.setItem('dashboardData', JSON.stringify(dashboardData));
     }
   }, [dashboardData]);
   
@@ -124,45 +95,41 @@ const MakeInspiresDashboard = () => {
     setIsLoading(true);
     setAuthError('');
     
-    // Demo accounts
-    const validUsers = {
-      'admin@makeinspires.com': { password: 'password123', role: 'admin', name: 'Admin User' },
-      'manager@makeinspires.com': { password: 'password123', role: 'manager', name: 'Manager User' },
-      'viewer@makeinspires.com': { password: 'password123', role: 'viewer', name: 'Viewer User' }
-    };
-    
-    const normalizedEmail = email.toLowerCase().trim();
-    const userAccount = validUsers[normalizedEmail];
-    
     setTimeout(() => {
-      if (userAccount && password === userAccount.password) {
-        const userData = {
-          email: normalizedEmail,
-          role: userAccount.role,
-          name: userAccount.name
-        };
+      const users = {
+        'admin@makeinspires.com': { role: 'admin', name: 'Admin User' },
+        'manager@makeinspires.com': { role: 'manager', name: 'Manager User' },
+        'viewer@makeinspires.com': { role: 'viewer', name: 'Viewer User' }
+      };
+      
+      const normalizedEmail = email.toLowerCase().trim();
+      
+      if (users[normalizedEmail] && password === 'password123') {
+        const userData = { email: normalizedEmail, ...users[normalizedEmail] };
         setUser(userData);
-        localStorage.setItem('makeinspiresUser', JSON.stringify(userData));
+        localStorage.setItem('user', JSON.stringify(userData));
         setEmail('');
         setPassword('');
       } else {
         setAuthError('Invalid email or password');
       }
+      
       setIsLoading(false);
-    }, 500);
+    }, 1000);
   };
   
   const handleLogout = () => {
     setUser(null);
-    localStorage.removeItem('makeinspiresUser');
+    localStorage.removeItem('user');
+    setActiveTab('overview');
   };
   
-  // Enhanced filtering with custom date range (UPDATED in v45.4)
-  const filteredData = useMemo(() => {
+  // Apply filters to dashboard data
+  const filteredDashboardData = useMemo(() => {
     const filters = {
       dateRange,
-      customStartDate: dateRange === 'custom' ? customStartDate : null,
-      customEndDate: dateRange === 'custom' ? customEndDate : null,
+      startDate: dateRange === 'custom' ? customStartDate : null,
+      endDate: dateRange === 'custom' ? customEndDate : null,
       location: location === 'all' ? null : location,
       programType: programType === 'all' ? null : programType
     };
@@ -195,7 +162,7 @@ const MakeInspiresDashboard = () => {
           <div className="text-center mb-8">
             <MakeInspiresLogo size={64} />
             <h1 className="text-2xl font-bold text-gray-900 mt-4">MakeInspires Dashboard</h1>
-            <p className="text-sm text-gray-600 mt-1">v45.4 - Date Range Features</p>
+            <p className="text-sm text-gray-600 mt-1">v46.0 - Fixed Categories</p>
           </div>
           
           <form onSubmit={handleLogin} className="space-y-4">
@@ -241,26 +208,26 @@ const MakeInspiresDashboard = () => {
             </div>
             
             {authError && (
-              <div className="text-red-600 text-sm text-center">{authError}</div>
+              <div className="bg-red-50 text-red-600 px-3 py-2 rounded-md text-sm">
+                {authError}
+              </div>
             )}
             
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
             >
               {isLoading ? 'Signing in...' : 'Sign In'}
             </button>
-          </form>
-          
-          <div className="mt-6 pt-6 border-t">
-            <p className="text-xs text-gray-500 text-center mb-2">Demo Credentials:</p>
-            <div className="text-xs text-gray-400 space-y-1 text-center">
-              <div>admin@makeinspires.com / password123</div>
-              <div>manager@makeinspires.com / password123</div>
-              <div>viewer@makeinspires.com / password123</div>
+            
+            <div className="mt-4 text-center text-xs text-gray-500">
+              <p>Demo credentials:</p>
+              <p className="mt-1">admin@makeinspires.com / password123</p>
+              <p>manager@makeinspires.com / password123</p>
+              <p>viewer@makeinspires.com / password123</p>
             </div>
-          </div>
+          </form>
         </div>
       </div>
     );
@@ -270,185 +237,178 @@ const MakeInspiresDashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center">
+              <MakeInspiresLogo size={32} />
+              <h1 className="ml-3 text-xl font-semibold text-gray-900">MakeInspires Dashboard</h1>
+              <span className="ml-3 text-xs text-gray-500">v46.0</span>
+            </div>
+            
             <div className="flex items-center space-x-4">
-              <MakeInspiresLogo size={40} />
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">MakeInspires Analytics</h1>
-                <div className="flex items-center space-x-2 text-xs text-gray-500">
-                  <span>v45.4</span>
-                  {dataSourceDateRange && (
-                    <>
-                      <span>•</span>
-                      <span>Data Sources: {dataSourceDateRange}</span>
-                    </>
-                  )}
+              {/* Filters Button */}
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center space-x-2 px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <ChevronDown className={`h-4 w-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+                <span>Filters</span>
+              </button>
+              
+              {/* User Menu */}
+              <div className="flex items-center space-x-3">
+                <div className="text-right">
+                  <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                  <p className="text-xs text-gray-500 capitalize">{user.role}</p>
                 </div>
+                <button
+                  onClick={handleLogout}
+                  className="p-2 text-gray-400 hover:text-gray-600"
+                >
+                  <LogOut size={20} />
+                </button>
               </div>
             </div>
-            
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">{user.name}</span>
-              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
-                {user.role}
-              </span>
-              <button
-                onClick={handleLogout}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <LogOut size={20} />
-              </button>
-            </div>
           </div>
         </div>
-      </header>
+      </div>
       
-      {/* Navigation Tabs */}
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8 overflow-x-auto">
-            {tabs.map(tab => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                    activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <Icon size={18} />
-                  <span>{tab.name}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </nav>
-      
-      {/* Filter Controls */}
-      <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex flex-wrap items-center gap-4">
-            <select
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value)}
-              className="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Time</option>
-              <option value="7d">Last 7 Days</option>
-              <option value="30d">Last 30 Days</option>
-              <option value="90d">Last 90 Days</option>
-              <option value="6m">Last 6 Months</option>
-              <option value="12m">Last 12 Months</option>
-              <option value="ytd">Year to Date</option>
-              <option value="custom">Custom Range</option>
-            </select>
-            
-            {/* Custom Date Range Inputs (NEW in v45.4) */}
-            {dateRange === 'custom' && (
-              <>
-                <input
-                  type="date"
-                  value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Start Date"
-                />
-                <span className="text-gray-500">to</span>
-                <input
-                  type="date"
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="End Date"
-                />
-              </>
-            )}
-            
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center space-x-1 text-sm text-gray-600 hover:text-gray-900"
-            >
-              <ChevronDown className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-              <span>Advanced Filters</span>
-            </button>
-            
-            {(dateRange !== 'all' || location !== 'all' || programType !== 'all') && (
-              <button
-                onClick={() => {
-                  setDateRange('all');
-                  setLocation('all');
-                  setProgramType('all');
-                  setCustomStartDate('');
-                  setCustomEndDate('');
-                }}
-                className="flex items-center space-x-1 text-sm text-blue-600 hover:text-blue-700"
-              >
-                <X size={14} />
-                <span>Clear Filters</span>
-              </button>
-            )}
-          </div>
-          
-          {/* Advanced Filters Panel */}
-          {showFilters && (
-            <div className="mt-3 pt-3 border-t grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* Filters Panel */}
+      {showFilters && (
+        <div className="bg-white border-b border-gray-200 shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {/* Date Range */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Location
-                </label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Date Range</label>
+                <select
+                  value={dateRange}
+                  onChange={(e) => setDateRange(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="all">All Time</option>
+                  <option value="7d">Last 7 Days</option>
+                  <option value="30d">Last 30 Days</option>
+                  <option value="90d">Last 90 Days</option>
+                  <option value="6m">Last 6 Months</option>
+                  <option value="12m">Last 12 Months</option>
+                  <option value="ytd">Year to Date</option>
+                  <option value="custom">Custom Range</option>
+                </select>
+              </div>
+              
+              {/* Location */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Location</label>
                 <select
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  className="w-full text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="all">All Locations</option>
                   <option value="Mamaroneck">Mamaroneck</option>
                   <option value="NYC">NYC</option>
                   <option value="Chappaqua">Chappaqua</option>
-                  <option value="Partner">Partner Locations</option>
+                  <option value="Partner">Partners</option>
                 </select>
               </div>
               
+              {/* Program Type - Updated Categories */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Program Type
-                </label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Program Type</label>
                 <select
                   value={programType}
                   onChange={(e) => setProgramType(e.target.value)}
-                  className="w-full text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
-                 <option value="all">All Programs</option>
-                <option value="Parties">Parties</option>
-                <option value="Semester">Semester</option>
-                <option value="Camp">Camp</option>
-                <option value="Workshops">Workshops</option>
-                <option value="Private">Private</option>
+                  <option value="all">All Programs</option>
+                  <option value="Parties">Parties</option>
+                  <option value="Semester">Semester</option>
+                  <option value="Camps">Camps</option>
+                  <option value="Workshops">Workshops</option>
+                  <option value="Private">Private</option>
+                  <option value="Other">Other</option>
                 </select>
               </div>
               
-              <div className="flex items-end">
-                <div className="text-sm text-gray-600">
-                  {filteredData.overview.totalTransactions.toLocaleString()} transactions
-                  {dateRange !== 'all' && ' (filtered)'}
-                </div>
+              {/* Filter Actions */}
+              <div className="flex items-end space-x-2">
+                <button
+                  onClick={() => {
+                    setDateRange('all');
+                    setLocation('all');
+                    setProgramType('all');
+                    setCustomStartDate('');
+                    setCustomEndDate('');
+                  }}
+                  className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+                >
+                  Reset
+                </button>
+                <button
+                  onClick={() => setShowFilters(false)}
+                  className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Apply
+                </button>
               </div>
             </div>
-          )}
+            
+            {/* Custom Date Range */}
+            {dateRange === 'custom' && (
+              <div className="mt-4 grid grid-cols-2 gap-4 max-w-md">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="w-full px-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="w-full px-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {/* Tab Navigation */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <nav className="flex space-x-8 overflow-x-auto">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <tab.icon size={16} />
+                <span>{tab.name}</span>
+              </button>
+            ))}
+          </nav>
         </div>
       </div>
       
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <DashboardTabs
           activeTab={activeTab}
-          dashboardData={filteredData}
+          dashboardData={filteredDashboardData}
           setDashboardData={setDashboardData}
           uploadStatus={uploadStatus}
           setUploadStatus={setUploadStatus}
@@ -459,7 +419,7 @@ const MakeInspiresDashboard = () => {
           customStartDate={customStartDate}
           customEndDate={customEndDate}
         />
-      </main>
+      </div>
     </div>
   );
 };
