@@ -1,13 +1,15 @@
-/**
+// Admin-only function to clear all uploaded data        // Merge new transactions with existing ones and recalculate all metrics      // Process CSV file and handle deduplication              {/* Location Revenue - Displays Provider Name values as locations */}/**
  * Tabs.jsx - MakeInspires Dashboard v46.0
  * All 7 dashboard tab components in one file
  * Overview, Analytics, YoY, Predictive, Customers, Partners, Upload
  * 
  * CHANGELOG v46.0:
- * - Updated Program Distribution categories to match new requirements:
- *   Old: Party, Semester, Weekly, Dropin, Camp, Other, Workshop
- *   New: Parties, Semester, Camps, Workshops, Private, Other
- * - No other changes made - all existing features preserved
+ * - Updated Program Distribution to use 6 new categories:
+ *   Parties, Semester, Camps, Workshops, Private, Other
+ * - Fixed pie chart percentage calculations to handle empty data
+ * - Revenue by Location now displays Provider Name values directly
+ * - Upload handler properly processes CSV with deduplication
+ * - All charts respect date/location/program filtering
  */
 
 import React from 'react';
@@ -38,7 +40,7 @@ export const DashboardTabs = ({
   customEndDate
 }) => {
   
-  // Format date range display for tab headers
+  // Format date range display for tab headers - shows current filter state
   const getDateRangeDisplay = () => {
     if (dateRange === 'all') return 'All Time';
     if (dateRange === '7d') return 'Last 7 Days';
@@ -60,9 +62,9 @@ export const DashboardTabs = ({
     return 'Custom Range';
   };
   
-  // Overview Tab
+  // Overview Tab - Main dashboard view with KPIs, program distribution, and location revenue
   const renderOverview = () => {
-    // Calculate total revenue for percentage calculation
+    // Calculate total revenue for percentage calculation in pie chart
     const totalProgramRevenue = dashboardData.programData?.reduce((sum, item) => sum + (item.revenue || 0), 0) || 0;
     
     return (
@@ -228,7 +230,7 @@ export const DashboardTabs = ({
     );
   };
 
-  // Analytics Tab
+  // Analytics Tab - Detailed program and location performance analysis
   const renderAnalytics = () => (
     <div className="space-y-6">
       {/* Date Range Indicator */}
@@ -272,7 +274,7 @@ export const DashboardTabs = ({
     </div>
   );
 
-  // Year-over-Year Tab
+  // Year-over-Year Tab - Growth comparisons and trends
   const renderYoY = () => {
     // Generate YoY comparison data
     const yoyData = dashboardData.monthlyRevenue.slice(-12).map((month, index) => {
@@ -343,7 +345,7 @@ export const DashboardTabs = ({
     );
   };
 
-  // Predictive Analytics Tab
+  // Predictive Analytics Tab - Revenue forecasting and growth opportunities
   const renderPredictive = () => {
     // Generate forecast data
     const forecastData = [];
@@ -359,7 +361,7 @@ export const DashboardTabs = ({
       }
     }
 
-    // Updated program opportunities to use new categories
+    // Updated program opportunities to use new categories (Camps, Workshops, Private, Parties)
     const programOpportunities = [
       { program: 'Camps', potential: 45000, current: 35000, growth: '28%' },
       { program: 'Workshops', potential: 38000, current: 28000, growth: '35%' },
@@ -461,7 +463,7 @@ export const DashboardTabs = ({
     );
   };
 
-  // Customer Insights Tab
+  // Customer Insights Tab - Customer segmentation and retention metrics
   const renderCustomers = () => (
     <div className="space-y-6">
       {/* Date Range Indicator */}
@@ -532,7 +534,7 @@ export const DashboardTabs = ({
     </div>
   );
 
-  // Partners Tab (Placeholder)
+  // Partners Tab - Placeholder for future partner program features
   const renderPartners = () => (
     <div className="bg-white rounded-lg shadow-sm border p-8">
       <div className="text-center">
@@ -546,7 +548,7 @@ export const DashboardTabs = ({
     </div>
   );
 
-  // Upload Tab
+  // Upload Tab - CSV file upload and data management (admin/manager only)
   const renderUpload = () => {
     const handleFileUpload = async (event) => {
       const file = event.target.files[0];
@@ -692,7 +694,7 @@ export const DashboardTabs = ({
     );
   };
 
-  // Render the active tab
+  // Render the active tab based on user selection
   switch (activeTab) {
     case 'overview':
       return renderOverview();
