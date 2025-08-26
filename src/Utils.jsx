@@ -257,9 +257,16 @@ export const processCSVFile = async (file) => {
     for (let i = 1; i < lines.length; i++) {
       try {
         const values = parseCSVLine(lines[i]);
-        if (values.length < headers.length) {
+        
+        // Allow rows with one less column (common when last column is empty)
+        if (values.length < headers.length - 1) {
           if (i <= debugFirstRows) console.log(`Row ${i}: Skipped - not enough columns (${values.length} vs ${headers.length})`);
           continue;
+        }
+        
+        // Pad values array if it's one column short (handle empty last column)
+        while (values.length < headers.length) {
+          values.push('');
         }
         
         const orderId = values[requiredColumns['Order ID']]?.toString().trim();
