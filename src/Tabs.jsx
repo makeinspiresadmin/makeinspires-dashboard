@@ -21,7 +21,7 @@ import {
   Upload, FileText, AlertCircle, CheckCircle, Clock,
   Activity, Eye, Trash2
 } from 'lucide-react';
-import { processCSVFile, CHART_COLORS } from './Utils';
+import { processCSVFile, calculateMetrics, CHART_COLORS } from './Utils';
 
 // Main tab controller component
 export const DashboardTabs = ({
