@@ -87,9 +87,6 @@ const dataSourceDateRange = useMemo(() => {
   
   return ` (${formatDateWithDay(minDate)} - ${formatDateWithDay(maxDate)})`;
 }, [dashboardData.transactions]);
-    
-    return ` (${formatMonth(minDate)} ${minDate.getFullYear()} - ${formatMonth(maxDate)} ${maxDate.getFullYear()})`;
-  }, [dashboardData.transactions]);
   
   // Load user and data from localStorage on mount
   useEffect(() => {
