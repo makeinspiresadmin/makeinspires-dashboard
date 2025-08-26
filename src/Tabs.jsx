@@ -1,18 +1,3 @@
-/** 
- * Admin-only function to clear all uploaded data        // Merge new transactions with existing ones and recalculate all metrics      // Process CSV file and handle deduplication              {/* Location Revenue - Displays Provider Name values as locations */}/**
- * Tabs.jsx - MakeInspires Dashboard v46.0
- * All 7 dashboard tab components in one file
- * Overview, Analytics, YoY, Predictive, Customers, Partners, Upload
- * 
- * CHANGELOG v46.0:
- * - Updated Program Distribution to use 6 new categories:
- *   Parties, Semester, Camps, Workshops, Private, Other
- * - Fixed pie chart percentage calculations to handle empty data
- * - Revenue by Location now displays Provider Name values directly
- * - Upload handler properly processes CSV with deduplication
- * - All charts respect date/location/program filtering
- */
-
 import React from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
