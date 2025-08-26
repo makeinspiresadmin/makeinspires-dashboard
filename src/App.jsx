@@ -1,25 +1,19 @@
 // Dashboard data
-  const [dashboardData, setDashboardData] = useState(() => {
-    const savedData = localStorage.getItem('dashboardData');
-    if (savedData) {
-      return JSON.parse(savedData);
-    }
-    return {
-      overview: {
-        totalRevenue: 0,
-        uniqueCustomers: 0,
-        totalTransactions: 0,
-        averageOrderValue: 0,
-        conversionRate: 0,
-        customerRetention: 0
-      },
-      programData: [],
-      locationData: [],
-      monthlyRevenue: [],
-      transactions: [],
-      uploadHistory: [],
-      lastUpdated: null
-    };
+  const [dashboardData, setDashboardData] = useState({
+    overview: {
+      totalRevenue: 0,
+      uniqueCustomers: 0,
+      totalTransactions: 0,
+      averageOrderValue: 0,
+      conversionRate: 0,
+      customerRetention: 0
+    },
+    programData: [],
+    locationData: [],
+    monthlyRevenue: [],
+    transactions: [],
+    uploadHistory: [],
+    lastUpdated: null
   });
   
   // Calculate data source date range for display
@@ -114,11 +108,20 @@ const MakeInspiresDashboard = () => {
     };
   });
   
-  // Load user from localStorage on mount
+  // Load user and data from localStorage on mount
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
       setUser(JSON.parse(savedUser));
+    }
+    
+    const savedData = localStorage.getItem('dashboardData');
+    if (savedData) {
+      try {
+        setDashboardData(JSON.parse(savedData));
+      } catch (e) {
+        console.error('Error loading saved data:', e);
+      }
     }
   }, []);
   
