@@ -172,7 +172,7 @@ const categorizeProgram = (itemType, activityName) => {
 
 // Filter transactions based on date range, location, and program type
 // Used by App.jsx to apply user-selected filters
-export const filterTransactions = (transactions, filters) => {
+const filterTransactions = (transactions, filters) => {
   if (!transactions || transactions.length === 0) return [];
   
   return transactions.filter(t => {
@@ -234,13 +234,13 @@ export const filterTransactions = (transactions, filters) => {
 
 // Chart colors for consistent visualization styling
 // Used by Tabs.jsx for pie charts and other visualizations
-export const CHART_COLORS = [
+const CHART_COLORS = [
   '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4'
 ];
 
 // Process CSV file and extract transaction data
 // Main entry point for file upload functionality
-export const processCSVFile = async (file) => {
+const processCSVFile = async (file) => {
   try {
     // Read file content as text
     const text = await new Promise((resolve, reject) => {
@@ -435,7 +435,7 @@ export const processCSVFile = async (file) => {
 
 // Calculate dashboard metrics from transaction data
 // Generates all metrics displayed in Overview and Analytics tabs
-export const calculateMetrics = (transactions) => {
+const calculateMetrics = (transactions) => {
   // Return empty metrics if no transactions
   if (!transactions || transactions.length === 0) {
     return {
