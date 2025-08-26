@@ -4,13 +4,22 @@
  * Handles CSV parsing, filtering, and metric calculations
  * 
  * CHANGELOG v46.0:
- * - Fixed Program Distribution categories:
+ * -/**
+ * Utils.jsx - MakeInspires Dashboard v46.0
+ * Data processing functions and helper utilities
+ * Handles CSV parsing, filtering, and metric calculations
+ * 
+ * CHANGELOG v46.0:
+ * - Fixed Program Distribution categories to 6 simplified categories:
  *   - Parties: Item Types = 'party'
- *   - Semester: Item Types = 'semester'
- *   - Camps: Activity Name includes 'summer' OR (Item Types = 'camp' AND Activity includes 'summer')
- *   - Workshops: ALL drop-in sessions OR (Item Types = 'camp' AND Activity does NOT include 'summer')
+ *   - Semester: Item Types = 'semester' (including compound types)
+ *   - Camps: Activity Name includes 'summer' (highest priority)
+ *   - Workshops: ALL drop-in sessions OR camps without 'summer'
  *   - Private: Item Types = 'pack'
- *   - Other: free trials, gift cards, and unmatched items
+ *   - Other: free trials, gift cards, weekly (non-summer), and unmatched items
+ * - Location data now uses Provider Name column directly (no normalization)
+ * - Fixed CSV parsing to handle 39-column data rows with 40 headers
+ * - Enhanced debug logging for troubleshooting
  */
 
 // Parse CSV line handling commas in quotes
@@ -96,7 +105,8 @@ const normalizeLocation = (location, providerName) => {
 };
 
 // Categorize programs based on item types and activity names
-// Updated v46.0: Fixed categories per requirements
+// Updated v46.0: Fixed categories per business requirements
+// Priority order matters - summer activities always go to Camps regardless of item type
 const categorizeProgram = (itemType, activityName) => {
   const type = (itemType || '').toLowerCase().trim();
   const activity = (activityName || '').toLowerCase().trim();
@@ -105,7 +115,7 @@ const categorizeProgram = (itemType, activityName) => {
   // Split by comma and check each part
   const itemTypeParts = type.split(',').map(part => part.trim());
   
-  // 1. Camps - Activity includes "summer" (highest priority)
+  // 1. Camps - Activity includes "summer" (highest priority - catches all summer programs)
   if (activity.includes('summer')) {
     return 'Camps';
   }
@@ -115,21 +125,20 @@ const categorizeProgram = (itemType, activityName) => {
     return 'Parties';
   }
   
-  // 3. Semester - Item Types includes 'semester' or variants
+  // 3. Semester - Item Types includes 'semester' or variants (handles compound types like "discount, semester")
   if (itemTypeParts.includes('semester') || 
       itemTypeParts.includes('semester_multiday') || 
       itemTypeParts.includes('free_semester')) {
     return 'Semester';
   }
   
-  // 4. Camps - Item Types = 'camp' AND Activity includes 'summer' (already handled above)
-  // Also handle camps without summer as Workshops
+  // 4. Camps without summer -> Workshops (camps that aren't summer camps become workshops)
   if (itemTypeParts.includes('camp')) {
     // If we're here, activity doesn't include 'summer' (checked above)
     return 'Workshops';
   }
   
-  // 5. Workshops - ALL drop-in sessions OR camps without summer
+  // 5. Workshops - ALL drop-in sessions regardless of activity name
   if (itemTypeParts.includes('dropin') || 
       itemTypeParts.includes('free_dropin') ||
       itemTypeParts.includes('drop-in') ||
@@ -142,7 +151,7 @@ const categorizeProgram = (itemType, activityName) => {
     return 'Private';
   }
   
-  // 7. Weekly programs - Check if summer (goes to Camps) or regular
+  // 7. Weekly programs - Non-summer weekly programs go to Other
   if (itemTypeParts.includes('weekly')) {
     // Summer weekly programs already caught by summer check above
     // Non-summer weekly programs go to Other
@@ -235,7 +244,7 @@ export const processCSVFile = async (file) => {
     const headers = parseCSVLine(lines[0]);
     console.log('📊 CSV Headers detected:', headers.length, 'columns');
     
-    // Column mapping
+    // Column mapping - Sawyer export structure (40 columns)
     const requiredColumns = {
       'Order ID': headers.findIndex(h => h.toLowerCase().includes('order') && h.toLowerCase().includes('id')),
       'Order Date': headers.findIndex(h => h.toLowerCase().includes('order') && h.toLowerCase().includes('date')),
@@ -275,7 +284,7 @@ export const processCSVFile = async (file) => {
       try {
         const values = parseCSVLine(lines[i]);
         
-        // Allow rows with one less column (common when last column is empty)
+        // Allow rows with one less column (common when last column "Custom Booking Fee Fixed Amount" is empty)
         if (values.length < headers.length - 1) {
           if (i <= debugFirstRows) console.log(`Row ${i}: Skipped - not enough columns (${values.length} vs ${headers.length})`);
           continue;
@@ -348,7 +357,7 @@ export const processCSVFile = async (file) => {
         
         seenOrderIds.set(orderId, true);
         
-        // Use Provider Name directly as the location
+        // Use Provider Name directly as the location (no normalization - shows actual provider names)
         const locationForChart = providerName || location || 'Unknown';
         const programCategory = categorizeProgram(itemTypes, activityName);
         
@@ -360,7 +369,7 @@ export const processCSVFile = async (file) => {
           paymentStatus,
           itemTypes,
           activityName,
-          location: locationForChart,  // Use Provider Name as location
+          location: locationForChart,  // Provider Name is used as location for Revenue by Location chart
           providerName,
           programCategory
         });
@@ -373,7 +382,7 @@ export const processCSVFile = async (file) => {
       }
     }
     
-    // Summary logging
+    // Summary logging - shows processing results in console
     const totalRevenue = transactions.reduce((sum, t) => sum + t.netAmount, 0);
     const uniqueCustomers = new Set(transactions.map(t => t.customerEmail)).size;
     
@@ -411,6 +420,7 @@ export const processCSVFile = async (file) => {
 };
 
 // Calculate dashboard metrics from transactions
+// Returns overview KPIs, program distribution, location performance, and monthly trends
 export const calculateMetrics = (transactions) => {
   if (!transactions || transactions.length === 0) {
     return {
