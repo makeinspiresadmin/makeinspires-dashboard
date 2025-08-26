@@ -694,7 +694,7 @@ export const DashboardTabs = ({
     );
   };
 
-  // Render the active tab based on user selection
+  // Render the active tab
   switch (activeTab) {
     case 'overview':
       return renderOverview();
