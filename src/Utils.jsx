@@ -3,36 +3,11 @@
  * Data processing functions and helper utilities
  * Handles CSV parsing, filtering, and metric calculations
  * 
- * CONTINUITY NOTES:
- * - Part of 3-file modular architecture (App.jsx, Tabs.jsx, Utils.jsx)
- * - Imported by both App.jsx and Tabs.jsx for data processing
- * - Exports: filterTransactions, processCSVFile, calculateMetrics, CHART_COLORS
- * - Handles all CSV parsing and data transformation logic
- * 
- * CURRENT FEATURES (v46.0 - ALL WORKING):
- * ✅ CSV Processing:
- *    - parseCSVLine() handles commas within quoted fields
- *    - parseDate() supports multiple date formats (ISO, MM/DD/YYYY)
- *    - Processes 40-column Sawyer export files
- *    - Deduplication using Order ID tracking
- *    - Filters out failed payments (only "Succeeded" status)
- *    - Validates positive net amounts
- * 
- * ✅ Data Categorization:
- *    - categorizeProgram() maps to 6 categories: Parties, Semester, Camps, Workshops, Private, Other
- *    - normalizeLocation() standardizes location names: Mamaroneck, NYC, Chappaqua, Partner, Other
- *    - Handles compound item types (e.g., "discount, semester")
- * 
- * ✅ Filtering System:
- *    - filterTransactions() applies date, location, and program filters
- *    - Supports custom date ranges with start/end dates
- *    - Handles relative date ranges (7d, 30d, 90d, 6m, 12m, ytd)
- * 
- * ✅ Metrics Calculation:
- *    - calculateMetrics() generates all dashboard metrics
- *    - Calculates revenue, customer counts, averages
- *    - Groups data by program, location, and month
- *    - Computes customer retention percentages
+ * CHANGELOG v46.0:
+ * -/**
+ * Utils.jsx - MakeInspires Dashboard v46.0
+ * Data processing functions and helper utilities
+ * Handles CSV parsing, filtering, and metric calculations
  * 
  * CHANGELOG v46.0:
  * - Fixed Program Distribution categories to 6 simplified categories:
@@ -42,22 +17,12 @@
  *   - Workshops: ALL drop-in sessions OR camps without 'summer'
  *   - Private: Item Types = 'pack'
  *   - Other: free trials, gift cards, weekly (non-summer), and unmatched items
- * 
- * CSV COLUMN MAPPING:
- * Required columns (must exist):
- * - Order ID, Order Date, Customer Email, Net Amount to Provider, Payment Status
- * Optional columns (used if present):
- * - Item Types, Order Activity Names, Order Locations, Provider Name
- * 
- * DATA FLOW:
- * 1. CSV file → processCSVFile() → transactions array
- * 2. transactions → filterTransactions() → filtered transactions
- * 3. filtered transactions → calculateMetrics() → dashboard metrics
- * 4. Metrics displayed in various tabs via DashboardTabs component
+ * - Location data now uses Provider Name column directly (no normalization)
+ * - Fixed CSV parsing to handle 39-column data rows with 40 headers
+ * - Enhanced debug logging for troubleshooting
  */
 
-// Parse CSV line handling commas within quoted fields
-// Correctly handles fields like "Mamaroneck, NY" in quotes
+// Parse CSV line handling commas in quotes
 const parseCSVLine = (line) => {
   const result = [];
   let current = '';
@@ -76,7 +41,6 @@ const parseCSVLine = (line) => {
     }
   }
   
-  // Don't forget the last field
   if (current) {
     result.push(current.trim());
   }
@@ -85,15 +49,14 @@ const parseCSVLine = (line) => {
 };
 
 // Parse date strings into Date objects
-// Handles multiple formats: ISO 8601, MM/DD/YYYY, MM-DD-YYYY
 const parseDate = (dateStr) => {
   if (!dateStr) return new Date();
   
-  // Try standard Date parsing first (handles ISO format)
+  // Try different date formats
   const date = new Date(dateStr);
   if (!isNaN(date)) return date;
   
-  // Try MM/DD/YYYY or MM-DD-YYYY format
+  // Try MM/DD/YYYY format
   const parts = dateStr.split(/[\/\-]/);
   if (parts.length === 3) {
     const [month, day, year] = parts;
@@ -101,32 +64,49 @@ const parseDate = (dateStr) => {
     if (!isNaN(parsedDate)) return parsedDate;
   }
   
-  return new Date(); // Return current date as fallback
+  return new Date();
 };
 
-// Normalize location names for consistent grouping
-// Maps various location strings to standardized names
-const normalizeLocation = (location) => {
-  const locationLower = location.toLowerCase();
+// Normalize location names using Provider Name field
+const normalizeLocation = (location, providerName) => {
+  // Check provider name first for more accurate location determination
+  const provider = (providerName || '').toLowerCase();
+  const loc = (location || '').toLowerCase();
   
-  if (locationLower.includes('mamaroneck') || locationLower.includes('mama')) {
-    return 'Mamaroneck';
-  }
-  if (locationLower.includes('nyc') || locationLower.includes('new york') || locationLower.includes('manhattan')) {
+  // Check Provider Name for location indicators
+  if (provider.includes('nyc') || provider.includes('new york') || provider.includes('manhattan') ||
+      provider.includes('upper east') || provider.includes('ues')) {
     return 'NYC';
   }
-  if (locationLower.includes('chappaqua') || locationLower.includes('chappa')) {
+  if (provider.includes('mamaroneck') || provider.includes('mama')) {
+    return 'Mamaroneck';
+  }
+  if (provider.includes('chappaqua') || provider.includes('chappa')) {
     return 'Chappaqua';
   }
-  if (locationLower.includes('partner') || locationLower.includes('offsite')) {
-    return 'Partner';
+  
+  // Fall back to Order Location field
+  if (loc.includes('mamaroneck') || loc.includes('mama')) {
+    return 'Mamaroneck';
+  }
+  if (loc.includes('nyc') || loc.includes('new york') || loc.includes('manhattan') ||
+      loc.includes('upper east') || loc.includes('hudson')) {
+    return 'NYC';
+  }
+  if (loc.includes('chappaqua') || loc.includes('chappa')) {
+    return 'Chappaqua';
+  }
+  if (loc.includes('partner') || loc.includes('offsite') || loc.includes('external')) {
+    return 'Partners';
   }
   
-  return location || 'Other';
+  // Group all other locations as "Other"
+  return 'Other';
 };
 
 // Categorize programs based on item types and activity names
 // Updated v46.0: Fixed categories per business requirements
+// Priority order matters - summer activities always go to Camps regardless of item type
 const categorizeProgram = (itemType, activityName) => {
   const type = (itemType || '').toLowerCase().trim();
   const activity = (activityName || '').toLowerCase().trim();
@@ -135,7 +115,7 @@ const categorizeProgram = (itemType, activityName) => {
   // Split by comma and check each part
   const itemTypeParts = type.split(',').map(part => part.trim());
   
-  // 1. Camps - Activity includes "summer" (highest priority)
+  // 1. Camps - Activity includes "summer" (highest priority - catches all summer programs)
   if (activity.includes('summer')) {
     return 'Camps';
   }
@@ -145,73 +125,84 @@ const categorizeProgram = (itemType, activityName) => {
     return 'Parties';
   }
   
-  // 3. Semester - Item Types includes 'semester'
-  if (itemTypeParts.some(part => part.includes('semester'))) {
+  // 3. Semester - Item Types includes 'semester' or variants (handles compound types like "discount, semester")
+  if (itemTypeParts.includes('semester') || 
+      itemTypeParts.includes('semester_multiday') || 
+      itemTypeParts.includes('free_semester')) {
     return 'Semester';
   }
   
-  // 4. Workshops - ALL drop-in sessions OR non-summer camps
-  if (type.includes('drop-in') || type.includes('drop in') || 
-      type.includes('dropin') || type.includes('single')) {
+  // 4. Camps without summer -> Workshops (camps that aren't summer camps become workshops)
+  if (itemTypeParts.includes('camp')) {
+    // If we're here, activity doesn't include 'summer' (checked above)
     return 'Workshops';
   }
   
-  // Also categorize non-summer camps as Workshops
-  if (type.includes('camp') && !activity.includes('summer')) {
+  // 5. Workshops - ALL drop-in sessions regardless of activity name
+  if (itemTypeParts.includes('dropin') || 
+      itemTypeParts.includes('free_dropin') ||
+      itemTypeParts.includes('drop-in') ||
+      itemTypeParts.includes('drop_in')) {
     return 'Workshops';
   }
   
-  // 5. Private - Item Types includes 'pack'
-  if (type.includes('pack')) {
+  // 6. Private - Item Types includes 'pack'
+  if (itemTypeParts.includes('pack')) {
     return 'Private';
   }
   
-  // 6. Other - Everything else (free trials, gift cards, weekly non-summer, unmatched)
+  // 7. Weekly programs - Non-summer weekly programs go to Other
+  if (itemTypeParts.includes('weekly')) {
+    // Summer weekly programs already caught by summer check above
+    // Non-summer weekly programs go to Other
+    return 'Other';
+  }
+  
+  // 8. Other - Free trials, gift cards, and everything else
+  if (itemTypeParts.includes('gift_card') || 
+      itemTypeParts.includes('free_trial') ||
+      type === '' || type === 'null') {
+    return 'Other';
+  }
+  
+  // Default fallback
   return 'Other';
 };
 
-// Filter transactions based on date range, location, and program type
-// Used by App.jsx to apply user-selected filters
-const filterTransactions = (transactions, filters) => {
-  if (!transactions || transactions.length === 0) return [];
+// Filter transactions based on selected filters
+export const filterTransactions = (transactions, filters) => {
+  if (!transactions || !Array.isArray(transactions)) return [];
   
   return transactions.filter(t => {
-    // Date range filtering
+    // Date range filtering with custom date support
     if (filters.dateRange && filters.dateRange !== 'all') {
       const transactionDate = new Date(t.orderDate);
+      const now = new Date();
       
-      // Handle custom date range with specific start/end dates
-      if (filters.dateRange === 'custom') {
-        if (filters.startDate) {
-          const startDate = new Date(filters.startDate);
-          if (transactionDate < startDate) return false;
-        }
-        if (filters.endDate) {
-          const endDate = new Date(filters.endDate);
-          endDate.setHours(23, 59, 59, 999); // Include entire end date
-          if (transactionDate > endDate) return false;
-        }
+      if (filters.dateRange === 'custom' && filters.startDate && filters.endDate) {
+        const start = new Date(filters.startDate);
+        const end = new Date(filters.endDate);
+        end.setHours(23, 59, 59, 999); // Include full end day
+        if (transactionDate < start || transactionDate > end) return false;
       } else {
-        // Handle relative date ranges (7d, 30d, etc.)
-        const now = new Date();
-        const cutoffDate = new Date();
-        
-        // Calculate days back based on date range
         let daysBack = 0;
-        switch(filters.dateRange) {
+        
+        switch (filters.dateRange) {
           case '7d': daysBack = 7; break;
           case '30d': daysBack = 30; break;
           case '90d': daysBack = 90; break;
           case '6m': daysBack = 180; break;
           case '12m': daysBack = 365; break;
           case 'ytd':
-            cutoffDate.setMonth(0, 1); // January 1st of current year
-            cutoffDate.setHours(0, 0, 0, 0);
-            if (transactionDate < cutoffDate) return false;
+            const yearStart = new Date(now.getFullYear(), 0, 1);
+            if (transactionDate < yearStart) return false;
+            break;
+          default:
             break;
         }
         
         if (daysBack > 0) {
+          const cutoffDate = new Date();
           cutoffDate.setDate(cutoffDate.getDate() - daysBack);
           if (transactionDate < cutoffDate) return false;
         }
@@ -232,17 +223,14 @@ const filterTransactions = (transactions, filters) => {
   });
 };
 
-// Chart colors for consistent visualization styling
-// Used by Tabs.jsx for pie charts and other visualizations
-const CHART_COLORS = [
+// Chart colors
+export const CHART_COLORS = [
   '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4'
 ];
 
-// Process CSV file and extract transaction data
-// Main entry point for file upload functionality
-const processCSVFile = async (file) => {
+// Process CSV file with enhanced revenue calculation and deduplication
+export const processCSVFile = async (file) => {
   try {
-    // Read file content as text
     const text = await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => resolve(e.target.result);
@@ -250,41 +238,38 @@ const processCSVFile = async (file) => {
       reader.readAsText(file);
     });
     
-    // Split into lines and filter out empty lines
     const lines = text.split('\n').filter(line => line.trim());
     if (lines.length < 2) throw new Error('CSV file appears to be empty or invalid');
     
-    // Parse headers from first line
     const headers = parseCSVLine(lines[0]);
     console.log('📊 CSV Headers detected:', headers.length, 'columns');
     
-    // Map column names to indices for required fields
+    // Column mapping - Sawyer export structure (40 columns)
     const requiredColumns = {
       'Order ID': headers.findIndex(h => h.toLowerCase().includes('order') && h.toLowerCase().includes('id')),
       'Order Date': headers.findIndex(h => h.toLowerCase().includes('order') && h.toLowerCase().includes('date')),
       'Customer Email': headers.findIndex(h => h.toLowerCase().includes('customer') && h.toLowerCase().includes('email')),
       'Net Amount to Provider': headers.findIndex(h => h.toLowerCase().includes('net') && h.toLowerCase().includes('amount')),
-      'Payment Status': headers.findIndex(h => h.toLowerCase().includes('payment') && h.toLowerCase().includes('status'))
+      'Payment Status': headers.findIndex(h => h.toLowerCase().includes('payment') && h.toLowerCase().includes('status')),
+      'Item Types': headers.findIndex(h => h.toLowerCase().includes('item') && h.toLowerCase().includes('type'))
     };
     
-    // Map column names to indices for optional fields
     const optionalColumns = {
-      'Item Types': headers.findIndex(h => h.toLowerCase().includes('item') && h.toLowerCase().includes('type')),
-      'Order Activity Names': headers.findIndex(h => h.toLowerCase().includes('activity')),
-      'Order Locations': headers.findIndex(h => h.toLowerCase().includes('location')),
+      'Order Activity Names': headers.findIndex(h => h.toLowerCase().includes('activity') && h.toLowerCase().includes('name')),
+      'Order Locations': headers.findIndex(h => h.toLowerCase().includes('order') && h.toLowerCase().includes('location')),
       'Provider Name': headers.findIndex(h => h.toLowerCase().includes('provider') && h.toLowerCase().includes('name'))
     };
     
-    // Validate required columns exist
+    // Validate required columns
     for (const [name, index] of Object.entries(requiredColumns)) {
       if (index === -1) {
-        throw new Error(`Required column "${name}" not found in CSV`);
+        console.warn(`⚠️ Warning: Required column "${name}" not found`);
       }
     }
     
-    // Process data rows
+    // Process transactions with deduplication
     const transactions = [];
-    const seenOrderIds = new Map(); // Track Order IDs for deduplication
+    const seenOrderIds = new Map();
     let processedCount = 0;
     let filteredCount = 0;
     let duplicateCount = 0;
@@ -295,34 +280,38 @@ const processCSVFile = async (file) => {
     // Debug logging for first few rows
     const debugFirstRows = 3;
     
-    // Process each data row (skip header)
     for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue; // Skip empty lines
-      
       try {
-        const values = parseCSVLine(line);
+        const values = parseCSVLine(lines[i]);
         
-        // Handle case where data row has fewer columns than header
-        // This can happen with trailing commas in the header
+        // Allow rows with one less column (common when last column "Custom Booking Fee Fixed Amount" is empty)
+        if (values.length < headers.length - 1) {
+          if (i <= debugFirstRows) console.log(`Row ${i}: Skipped - not enough columns (${values.length} vs ${headers.length})`);
+          continue;
+        }
+        
+        // Pad values array if it's one column short (handle empty last column)
         while (values.length < headers.length) {
           values.push('');
         }
         
-        // Extract required fields
         const orderId = values[requiredColumns['Order ID']]?.toString().trim();
         const orderDate = values[requiredColumns['Order Date']]?.toString().trim();
         const customerEmail = values[requiredColumns['Customer Email']]?.toString().trim();
-        const netAmountStr = values[requiredColumns['Net Amount to Provider']]?.toString().trim();
+        const netAmount = parseFloat(values[requiredColumns['Net Amount to Provider']] || 0);
         const paymentStatus = values[requiredColumns['Payment Status']]?.toString().trim();
+        const itemTypes = values[requiredColumns['Item Types']]?.toString().trim() || '';
         
-        // Parse net amount, handling currency symbols and commas
-        const netAmount = parseFloat(netAmountStr.replace(/[$,]/g, '')) || 0;
+        // Debug first few rows
+        if (i <= debugFirstRows) {
+          console.log(`Row ${i} Debug:`);
+          console.log(`  Order ID (col ${requiredColumns['Order ID']}): "${orderId}"`);
+          console.log(`  Email (col ${requiredColumns['Customer Email']}): "${customerEmail}"`);
+          console.log(`  Payment Status (col ${requiredColumns['Payment Status']}): "${paymentStatus}"`);
+          console.log(`  Net Amount (col ${requiredColumns['Net Amount to Provider']}): ${netAmount}`);
+        }
         
-        // Extract optional fields
-        const itemTypes = optionalColumns['Item Types'] >= 0
-          ? values[optionalColumns['Item Types']]?.toString().trim() || ''
-          : '';
+        // Optional fields
         const activityName = optionalColumns['Order Activity Names'] >= 0
           ? values[optionalColumns['Order Activity Names']]?.toString().trim() || ''
           : '';
@@ -333,7 +322,7 @@ const processCSVFile = async (file) => {
           ? values[optionalColumns['Provider Name']]?.toString().trim() || ''
           : '';
         
-        // Skip invalid rows (missing required fields)
+        // Skip invalid rows
         if (!orderId || !customerEmail) {
           filteredCount++;
           if (i <= debugFirstRows) console.log(`  SKIPPED: Missing ${!orderId ? 'Order ID' : 'Email'}`);
@@ -345,7 +334,7 @@ const processCSVFile = async (file) => {
           totalCsvAmount += netAmount;
         }
         
-        // Check for duplicates using Order ID
+        // Check for duplicates
         if (seenOrderIds.has(orderId)) {
           duplicateCount++;
           if (i <= debugFirstRows) console.log(`  SKIPPED: Duplicate Order ID`);
@@ -366,23 +355,21 @@ const processCSVFile = async (file) => {
           continue;
         }
         
-        // Mark Order ID as seen
         seenOrderIds.set(orderId, true);
         
-        // Normalize location and categorize program
-        const normalizedLocation = normalizeLocation(location);
+        // Use Provider Name directly as the location (no normalization - shows actual provider names)
+        const locationForChart = providerName || location || 'Unknown';
         const programCategory = categorizeProgram(itemTypes, activityName);
         
-        // Create transaction object
         transactions.push({
           orderId,
           orderDate: parseDate(orderDate),
           customerEmail: customerEmail.toLowerCase(),
-          netAmount: Math.round(netAmount * 100) / 100, // Round to 2 decimal places
+          netAmount: Math.round(netAmount * 100) / 100,
           paymentStatus,
           itemTypes,
           activityName,
-          location: normalizedLocation,
+          location: locationForChart,  // Provider Name is used as location for Revenue by Location chart
           providerName,
           programCategory
         });
@@ -395,11 +382,10 @@ const processCSVFile = async (file) => {
       }
     }
     
-    // Calculate summary statistics
+    // Summary logging - shows processing results in console
     const totalRevenue = transactions.reduce((sum, t) => sum + t.netAmount, 0);
     const uniqueCustomers = new Set(transactions.map(t => t.customerEmail)).size;
     
-    // Log processing summary
     console.log('🎯 CSV PROCESSING COMPLETE:');
     console.log(`  📊 Total rows in CSV: ${lines.length - 1}`);
     console.log(`  ✅ Valid transactions: ${processedCount}`);
@@ -433,10 +419,8 @@ const processCSVFile = async (file) => {
   }
 };
 
-// Calculate dashboard metrics from transaction data
-// Generates all metrics displayed in Overview and Analytics tabs
-const calculateMetrics = (transactions) => {
-  // Return empty metrics if no transactions
+// Calculate dashboard metrics from transactions
+export const calculateMetrics = (transactions) => {
   if (!transactions || transactions.length === 0) {
     return {
       overview: {
@@ -453,12 +437,12 @@ const calculateMetrics = (transactions) => {
     };
   }
   
-  // Calculate overview metrics
+  // Overview metrics
   const totalRevenue = transactions.reduce((sum, t) => sum + (t.netAmount || 0), 0);
   const uniqueCustomers = new Set(transactions.map(t => t.customerEmail)).size;
   const averageOrderValue = totalRevenue / transactions.length;
   
-  // Group transactions by program category
+  // Program performance
   const programMap = {};
   transactions.forEach(t => {
     if (!programMap[t.programCategory]) {
@@ -469,17 +453,16 @@ const calculateMetrics = (transactions) => {
     programMap[t.programCategory].customers.add(t.customerEmail);
   });
   
-  // Convert program map to array for charts
-  // Note: category names are used as-is, no display name mapping
+  // Ensure we're using the correct category names without modification
   const programData = Object.entries(programMap).map(([name, data]) => ({
-    name: name, // Use the category name as-is
+    name: name, // Use the category name as-is, no display name mapping
     revenue: Math.round(data.revenue),
     count: data.count,
     uniqueCustomers: data.customers.size,
     avgTransaction: Math.round(data.revenue / data.count)
   })).sort((a, b) => b.revenue - a.revenue);
   
-  // Group transactions by location
+  // Location performance
   const locationMap = {};
   transactions.forEach(t => {
     if (!locationMap[t.location]) {
@@ -489,17 +472,16 @@ const calculateMetrics = (transactions) => {
     locationMap[t.location].count++;
   });
   
-  // Convert location map to array for charts
   const locationData = Object.entries(locationMap).map(([name, data]) => ({
     name,
     revenue: Math.round(data.revenue),
     count: data.count
   })).sort((a, b) => b.revenue - a.revenue);
   
-  // Group transactions by month
+  // Monthly revenue
   const monthlyMap = {};
   transactions.forEach(t => {
-    const month = new Date(t.orderDate).toISOString().slice(0, 7); // YYYY-MM format
+    const month = new Date(t.orderDate).toISOString().slice(0, 7);
     if (!monthlyMap[month]) {
       monthlyMap[month] = { revenue: 0, count: 0 };
     }
@@ -507,7 +489,6 @@ const calculateMetrics = (transactions) => {
     monthlyMap[month].count++;
   });
   
-  // Convert monthly map to sorted array
   const monthlyRevenue = Object.entries(monthlyMap)
     .map(([month, data]) => ({
       month,
@@ -516,7 +497,7 @@ const calculateMetrics = (transactions) => {
     }))
     .sort((a, b) => a.month.localeCompare(b.month));
   
-  // Calculate customer retention metrics
+  // Customer retention calculation
   const customerPurchases = {};
   transactions.forEach(t => {
     if (!customerPurchases[t.customerEmail]) {
@@ -525,18 +506,16 @@ const calculateMetrics = (transactions) => {
     customerPurchases[t.customerEmail]++;
   });
   
-  // Count customers with multiple purchases
   const repeatCustomers = Object.values(customerPurchases).filter(count => count > 1).length;
   const customerRetention = uniqueCustomers > 0 ? (repeatCustomers / uniqueCustomers) * 100 : 0;
   
-  // Return complete metrics object
   return {
     overview: {
       totalRevenue: Math.round(totalRevenue),
       uniqueCustomers,
       totalTransactions: transactions.length,
       averageOrderValue: Math.round(averageOrderValue),
-      conversionRate: 0, // Would need additional data (visits vs purchases) to calculate
+      conversionRate: 0, // Would need additional data to calculate
       customerRetention: Math.round(customerRetention)
     },
     programData,
