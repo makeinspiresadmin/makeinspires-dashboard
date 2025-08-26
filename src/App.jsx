@@ -2,7 +2,7 @@
  * App.jsx - MakeInspires Dashboard v46.0
  * Main application file with authentication, layout, and state management
  * 
- * CHANGELOG v46.0:
+ * CHANGELOG v46.1:
  * - Updated program category filters
  * - Added date range filtering  
  * - Added data source date range display
@@ -66,20 +66,27 @@ const MakeInspiresDashboard = () => {
     lastUpdated: null
   });
   
-  // Calculate data source date range for display
-  const dataSourceDateRange = useMemo(() => {
-    if (!dashboardData.transactions || dashboardData.transactions.length === 0) {
-      return '';
-    }
-    
-    const dates = dashboardData.transactions.map(t => new Date(t.orderDate));
-    const minDate = new Date(Math.min(...dates));
-    const maxDate = new Date(Math.max(...dates));
-    
-    const formatMonth = (date) => {
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      return months[date.getMonth()];
-    };
+// Calculate data source date range for display - UPDATED in v46.1
+const dataSourceDateRange = useMemo(() => {
+  if (!dashboardData.transactions || dashboardData.transactions.length === 0) {
+    return '';
+  }
+  
+  const dates = dashboardData.transactions.map(t => new Date(t.orderDate));
+  const minDate = new Date(Math.min(...dates));
+  const maxDate = new Date(Math.max(...dates));
+  
+  // Updated format to include day - NEW in v46.1
+  const formatDateWithDay = (date) => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = months[date.getMonth()];
+    const day = date.getDate();
+    const year = date.getFullYear();
+    return `${month} ${day}, ${year}`;
+  };
+  
+  return ` (${formatDateWithDay(minDate)} - ${formatDateWithDay(maxDate)})`;
+}, [dashboardData.transactions]);
     
     return ` (${formatMonth(minDate)} ${minDate.getFullYear()} - ${formatMonth(maxDate)} ${maxDate.getFullYear()})`;
   }, [dashboardData.transactions]);
@@ -181,7 +188,7 @@ const MakeInspiresDashboard = () => {
           <div className="text-center mb-8">
             <MakeInspiresLogo size={64} />
             <h1 className="text-2xl font-bold text-gray-900 mt-4">MakeInspires Dashboard</h1>
-            <p className="text-sm text-gray-600 mt-1">v46.0 - Fixed Categories</p>
+            <p className="text-sm text-gray-600 mt-1">v46.1</p>
           </div>
           
           <form onSubmit={handleLogin} className="space-y-4">
@@ -262,7 +269,7 @@ const MakeInspiresDashboard = () => {
             <div className="flex items-center">
               <MakeInspiresLogo size={32} />
               <h1 className="ml-3 text-xl font-semibold text-gray-900">MakeInspires Dashboard</h1>
-              <span className="ml-3 text-xs text-gray-500">v46.0{dataSourceDateRange}</span>
+              <span className="ml-3 text-xs text-gray-500">v46.1{dataSourceDateRange}</span>
             </div>
             
             <div className="flex items-center space-x-4">
