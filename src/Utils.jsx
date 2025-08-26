@@ -242,7 +242,7 @@ export const processCSVFile = async (file) => {
     if (lines.length < 2) throw new Error('CSV file appears to be empty or invalid');
     
     const headers = parseCSVLine(lines[0]);
-    console.log('📊 CSV Headers detected:', headers.length, 'columns');
+    console.log('ðŸ“Š CSV Headers detected:', headers.length, 'columns');
     
     // Column mapping - Sawyer export structure (40 columns)
     const requiredColumns = {
@@ -263,7 +263,7 @@ export const processCSVFile = async (file) => {
     // Validate required columns
     for (const [name, index] of Object.entries(requiredColumns)) {
       if (index === -1) {
-        console.warn(`⚠️ Warning: Required column "${name}" not found`);
+        console.warn(`âš ï¸ Warning: Required column "${name}" not found`);
       }
     }
     
@@ -375,10 +375,10 @@ export const processCSVFile = async (file) => {
         });
         
         processedCount++;
-        if (i <= debugFirstRows) console.log(`  ✓ ADDED: Category = ${programCategory}`);
+        if (i <= debugFirstRows) console.log(`  âœ“ ADDED: Category = ${programCategory}`);
         
       } catch (rowError) {
-        console.warn(`⚠️ Error processing row ${i + 1}:`, rowError.message);
+        console.warn(`âš ï¸ Error processing row ${i + 1}:`, rowError.message);
       }
     }
     
@@ -386,14 +386,14 @@ export const processCSVFile = async (file) => {
     const totalRevenue = transactions.reduce((sum, t) => sum + t.netAmount, 0);
     const uniqueCustomers = new Set(transactions.map(t => t.customerEmail)).size;
     
-    console.log('🎯 CSV PROCESSING COMPLETE:');
-    console.log(`  📊 Total rows in CSV: ${lines.length - 1}`);
-    console.log(`  ✅ Valid transactions: ${processedCount}`);
-    console.log(`  🚫 Filtered out (invalid): ${filteredCount}`);
-    console.log(`  🔄 Duplicates removed: ${duplicateCount}`);
-    console.log(`  ❌ Failed payments excluded: ${failedPaymentCount}`);
-    console.log(`  💰 Total revenue: $${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`);
-    console.log(`  👥 Unique customers: ${uniqueCustomers}`);
+    console.log('ðŸŽ¯ CSV PROCESSING COMPLETE:');
+    console.log(`  ðŸ“Š Total rows in CSV: ${lines.length - 1}`);
+    console.log(`  âœ… Valid transactions: ${processedCount}`);
+    console.log(`  ðŸš« Filtered out (invalid): ${filteredCount}`);
+    console.log(`  ðŸ”„ Duplicates removed: ${duplicateCount}`);
+    console.log(`  âŒ Failed payments excluded: ${failedPaymentCount}`);
+    console.log(`  ðŸ’° Total revenue: $${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`);
+    console.log(`  ðŸ‘¥ Unique customers: ${uniqueCustomers}`);
     
     return {
       success: true,
@@ -411,7 +411,7 @@ export const processCSVFile = async (file) => {
     };
     
   } catch (error) {
-    console.error('❌ CSV Processing Error:', error);
+    console.error('âŒ CSV Processing Error:', error);
     return {
       success: false,
       error: error.message
