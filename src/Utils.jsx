@@ -399,8 +399,9 @@ export const calculateMetrics = (transactions) => {
     programMap[t.programCategory].customers.add(t.customerEmail);
   });
   
+  // Ensure we're using the correct category names without modification
   const programData = Object.entries(programMap).map(([name, data]) => ({
-    name,
+    name: name, // Use the category name as-is, no display name mapping
     revenue: Math.round(data.revenue),
     count: data.count,
     uniqueCustomers: data.customers.size,
