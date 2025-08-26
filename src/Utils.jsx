@@ -1,1 +1,533 @@
+/**
+ * Utils.jsx - MakeInspires Dashboard v46.0
+ * Data processing functions and helper utilities
+ * Handles CSV parsing, filtering, and metric calculations
+ * 
+ * CHANGELOG v46.0:
+ * -/**
+ * Utils.jsx - MakeInspires Dashboard v46.0
+ * Data processing functions and helper utilities
+ * Handles CSV parsing, filtering, and metric calculations
+ * 
+ * CHANGELOG v46.0:
+ * - Fixed Program Distribution categories to 6 simplified categories:
+ *   - Parties: Item Types = 'party'
+ *   - Semester: Item Types = 'semester' (including compound types)
+ *   - Camps: Activity Name includes 'summer' (highest priority)
+ *   - Workshops: ALL drop-in sessions OR camps without 'summer'
+ *   - Private: Item Types = 'pack'
+ *   - Other: free trials, gift cards, weekly (non-summer), and unmatched items
+ * - Location data now uses Provider Name column directly (no normalization)
+ * - Fixed CSV parsing to handle 39-column data rows with 40 headers
+ * - Enhanced debug logging for troubleshooting
+ */
 
+// Parse CSV line handling commas in quotes
+const parseCSVLine = (line) => {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  
+  if (current) {
+    result.push(current.trim());
+  }
+  
+  return result;
+};
+
+// Parse date strings into Date objects
+const parseDate = (dateStr) => {
+  if (!dateStr) return new Date();
+  
+  // Try different date formats
+  const date = new Date(dateStr);
+  if (!isNaN(date)) return date;
+  
+  // Try MM/DD/YYYY format
+  const parts = dateStr.split(/[\/\-]/);
+  if (parts.length === 3) {
+    const [month, day, year] = parts;
+    const parsedDate = new Date(year, month - 1, day);
+    if (!isNaN(parsedDate)) return parsedDate;
+  }
+  
+  return new Date();
+};
+
+// Normalize location names using Provider Name field
+const normalizeLocation = (location, providerName) => {
+  // Check provider name first for more accurate location determination
+  const provider = (providerName || '').toLowerCase();
+  const loc = (location || '').toLowerCase();
+  
+  // Check Provider Name for location indicators
+  if (provider.includes('nyc') || provider.includes('new york') || provider.includes('manhattan') ||
+      provider.includes('upper east') || provider.includes('ues')) {
+    return 'NYC';
+  }
+  if (provider.includes('mamaroneck') || provider.includes('mama')) {
+    return 'Mamaroneck';
+  }
+  if (provider.includes('chappaqua') || provider.includes('chappa')) {
+    return 'Chappaqua';
+  }
+  
+  // Fall back to Order Location field
+  if (loc.includes('mamaroneck') || loc.includes('mama')) {
+    return 'Mamaroneck';
+  }
+  if (loc.includes('nyc') || loc.includes('new york') || loc.includes('manhattan') ||
+      loc.includes('upper east') || loc.includes('hudson')) {
+    return 'NYC';
+  }
+  if (loc.includes('chappaqua') || loc.includes('chappa')) {
+    return 'Chappaqua';
+  }
+  if (loc.includes('partner') || loc.includes('offsite') || loc.includes('external')) {
+    return 'Partners';
+  }
+  
+  // Group all other locations as "Other"
+  return 'Other';
+};
+
+// Categorize programs based on item types and activity names
+// Updated v46.0: Fixed categories per business requirements
+// Priority order matters - summer activities always go to Camps regardless of item type
+const categorizeProgram = (itemType, activityName) => {
+  const type = (itemType || '').toLowerCase().trim();
+  const activity = (activityName || '').toLowerCase().trim();
+  
+  // Handle compound item types (e.g., "discount, semester")
+  // Split by comma and check each part
+  const itemTypeParts = type.split(',').map(part => part.trim());
+  
+  // 1. Camps - Activity includes "summer" (highest priority - catches all summer programs)
+  if (activity.includes('summer')) {
+    return 'Camps';
+  }
+  
+  // 2. Parties - Item Types includes 'party'
+  if (itemTypeParts.includes('party')) {
+    return 'Parties';
+  }
+  
+  // 3. Semester - Item Types includes 'semester' or variants (handles compound types like "discount, semester")
+  if (itemTypeParts.includes('semester') || 
+      itemTypeParts.includes('semester_multiday') || 
+      itemTypeParts.includes('free_semester')) {
+    return 'Semester';
+  }
+  
+  // 4. Camps without summer -> Workshops (camps that aren't summer camps become workshops)
+  if (itemTypeParts.includes('camp')) {
+    // If we're here, activity doesn't include 'summer' (checked above)
+    return 'Workshops';
+  }
+  
+  // 5. Workshops - ALL drop-in sessions regardless of activity name
+  if (itemTypeParts.includes('dropin') || 
+      itemTypeParts.includes('free_dropin') ||
+      itemTypeParts.includes('drop-in') ||
+      itemTypeParts.includes('drop_in')) {
+    return 'Workshops';
+  }
+  
+  // 6. Private - Item Types includes 'pack'
+  if (itemTypeParts.includes('pack')) {
+    return 'Private';
+  }
+  
+  // 7. Weekly programs - Non-summer weekly programs go to Other
+  if (itemTypeParts.includes('weekly')) {
+    // Summer weekly programs already caught by summer check above
+    // Non-summer weekly programs go to Other
+    return 'Other';
+  }
+  
+  // 8. Other - Free trials, gift cards, and everything else
+  if (itemTypeParts.includes('gift_card') || 
+      itemTypeParts.includes('free_trial') ||
+      type === '' || type === 'null') {
+    return 'Other';
+  }
+  
+  // Default fallback
+  return 'Other';
+};
+
+// Filter transactions based on selected filters
+export const filterTransactions = (transactions, filters) => {
+  if (!transactions || !Array.isArray(transactions)) return [];
+  
+  return transactions.filter(t => {
+    // Date range filtering with custom date support
+    if (filters.dateRange && filters.dateRange !== 'all') {
+      const transactionDate = new Date(t.orderDate);
+      const now = new Date();
+      
+      if (filters.dateRange === 'custom' && filters.startDate && filters.endDate) {
+        const start = new Date(filters.startDate);
+        const end = new Date(filters.endDate);
+        end.setHours(23, 59, 59, 999); // Include full end day
+        if (transactionDate < start || transactionDate > end) return false;
+      } else {
+        let daysBack = 0;
+        
+        switch (filters.dateRange) {
+          case '7d': daysBack = 7; break;
+          case '30d': daysBack = 30; break;
+          case '90d': daysBack = 90; break;
+          case '6m': daysBack = 180; break;
+          case '12m': daysBack = 365; break;
+          case 'ytd':
+            const yearStart = new Date(now.getFullYear(), 0, 1);
+            if (transactionDate < yearStart) return false;
+            break;
+          default:
+            break;
+        }
+        
+        if (daysBack > 0) {
+          const cutoffDate = new Date();
+          cutoffDate.setDate(cutoffDate.getDate() - daysBack);
+          if (transactionDate < cutoffDate) return false;
+        }
+      }
+    }
+    
+    // Location filtering
+    if (filters.location && filters.location !== 'all') {
+      if (t.location !== filters.location) return false;
+    }
+    
+    // Program type filtering
+    if (filters.programType && filters.programType !== 'all') {
+      if (t.programCategory !== filters.programType) return false;
+    }
+    
+    return true;
+  });
+};
+
+// Chart colors
+export const CHART_COLORS = [
+  '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4'
+];
+
+// Process CSV file with enhanced revenue calculation and deduplication
+export const processCSVFile = async (file) => {
+  try {
+    const text = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = reject;
+      reader.readAsText(file);
+    });
+    
+    const lines = text.split('\n').filter(line => line.trim());
+    if (lines.length < 2) throw new Error('CSV file appears to be empty or invalid');
+    
+    const headers = parseCSVLine(lines[0]);
+    console.log('📊 CSV Headers detected:', headers.length, 'columns');
+    
+    // Column mapping - Sawyer export structure (40 columns)
+    const requiredColumns = {
+      'Order ID': headers.findIndex(h => h.toLowerCase().includes('order') && h.toLowerCase().includes('id')),
+      'Order Date': headers.findIndex(h => h.toLowerCase().includes('order') && h.toLowerCase().includes('date')),
+      'Customer Email': headers.findIndex(h => h.toLowerCase().includes('customer') && h.toLowerCase().includes('email')),
+      'Net Amount to Provider': headers.findIndex(h => h.toLowerCase().includes('net') && h.toLowerCase().includes('amount')),
+      'Payment Status': headers.findIndex(h => h.toLowerCase().includes('payment') && h.toLowerCase().includes('status')),
+      'Item Types': headers.findIndex(h => h.toLowerCase().includes('item') && h.toLowerCase().includes('type'))
+    };
+    
+    const optionalColumns = {
+      'Order Activity Names': headers.findIndex(h => h.toLowerCase().includes('activity') && h.toLowerCase().includes('name')),
+      'Order Locations': headers.findIndex(h => h.toLowerCase().includes('order') && h.toLowerCase().includes('location')),
+      'Provider Name': headers.findIndex(h => h.toLowerCase().includes('provider') && h.toLowerCase().includes('name'))
+    };
+    
+    // Validate required columns
+    for (const [name, index] of Object.entries(requiredColumns)) {
+      if (index === -1) {
+        console.warn(`⚠️ Warning: Required column "${name}" not found`);
+      }
+    }
+    
+    // Process transactions with deduplication
+    const transactions = [];
+    const seenOrderIds = new Map();
+    let processedCount = 0;
+    let filteredCount = 0;
+    let duplicateCount = 0;
+    let failedPaymentCount = 0;
+    let negativeAmountCount = 0;
+    let totalCsvAmount = 0;
+    
+    // Debug logging for first few rows
+    const debugFirstRows = 3;
+    
+    for (let i = 1; i < lines.length; i++) {
+      try {
+        const values = parseCSVLine(lines[i]);
+        
+        // Allow rows with one less column (common when last column "Custom Booking Fee Fixed Amount" is empty)
+        if (values.length < headers.length - 1) {
+          if (i <= debugFirstRows) console.log(`Row ${i}: Skipped - not enough columns (${values.length} vs ${headers.length})`);
+          continue;
+        }
+        
+        // Pad values array if it's one column short (handle empty last column)
+        while (values.length < headers.length) {
+          values.push('');
+        }
+        
+        const orderId = values[requiredColumns['Order ID']]?.toString().trim();
+        const orderDate = values[requiredColumns['Order Date']]?.toString().trim();
+        const customerEmail = values[requiredColumns['Customer Email']]?.toString().trim();
+        const netAmount = parseFloat(values[requiredColumns['Net Amount to Provider']] || 0);
+        const paymentStatus = values[requiredColumns['Payment Status']]?.toString().trim();
+        const itemTypes = values[requiredColumns['Item Types']]?.toString().trim() || '';
+        
+        // Debug first few rows
+        if (i <= debugFirstRows) {
+          console.log(`Row ${i} Debug:`);
+          console.log(`  Order ID (col ${requiredColumns['Order ID']}): "${orderId}"`);
+          console.log(`  Email (col ${requiredColumns['Customer Email']}): "${customerEmail}"`);
+          console.log(`  Payment Status (col ${requiredColumns['Payment Status']}): "${paymentStatus}"`);
+          console.log(`  Net Amount (col ${requiredColumns['Net Amount to Provider']}): ${netAmount}`);
+        }
+        
+        // Optional fields
+        const activityName = optionalColumns['Order Activity Names'] >= 0
+          ? values[optionalColumns['Order Activity Names']]?.toString().trim() || ''
+          : '';
+        const location = optionalColumns['Order Locations'] >= 0
+          ? values[optionalColumns['Order Locations']]?.toString().trim() || ''
+          : '';
+        const providerName = optionalColumns['Provider Name'] >= 0
+          ? values[optionalColumns['Provider Name']]?.toString().trim() || ''
+          : '';
+        
+        // Skip invalid rows
+        if (!orderId || !customerEmail) {
+          filteredCount++;
+          if (i <= debugFirstRows) console.log(`  SKIPPED: Missing ${!orderId ? 'Order ID' : 'Email'}`);
+          continue;
+        }
+        
+        // Track all amounts for debugging
+        if (paymentStatus === 'Succeeded') {
+          totalCsvAmount += netAmount;
+        }
+        
+        // Check for duplicates
+        if (seenOrderIds.has(orderId)) {
+          duplicateCount++;
+          if (i <= debugFirstRows) console.log(`  SKIPPED: Duplicate Order ID`);
+          continue;
+        }
+        
+        // Skip failed payments
+        if (paymentStatus !== 'Succeeded') {
+          failedPaymentCount++;
+          if (i <= debugFirstRows) console.log(`  SKIPPED: Payment status is "${paymentStatus}" not "Succeeded"`);
+          continue;
+        }
+        
+        // Skip negative or zero amounts
+        if (netAmount <= 0) {
+          negativeAmountCount++;
+          if (i <= debugFirstRows) console.log(`  SKIPPED: Net amount is ${netAmount} (must be > 0)`);
+          continue;
+        }
+        
+        seenOrderIds.set(orderId, true);
+        
+        // Use Provider Name directly as the location (no normalization - shows actual provider names)
+        const locationForChart = providerName || location || 'Unknown';
+        const programCategory = categorizeProgram(itemTypes, activityName);
+        
+        transactions.push({
+          orderId,
+          orderDate: parseDate(orderDate),
+          customerEmail: customerEmail.toLowerCase(),
+          netAmount: Math.round(netAmount * 100) / 100,
+          paymentStatus,
+          itemTypes,
+          activityName,
+          location: locationForChart,  // Provider Name is used as location for Revenue by Location chart
+          providerName,
+          programCategory
+        });
+        
+        processedCount++;
+        if (i <= debugFirstRows) console.log(`  ✓ ADDED: Category = ${programCategory}`);
+        
+      } catch (rowError) {
+        console.warn(`⚠️ Error processing row ${i + 1}:`, rowError.message);
+      }
+    }
+    
+    // Summary logging - shows processing results in console
+    const totalRevenue = transactions.reduce((sum, t) => sum + t.netAmount, 0);
+    const uniqueCustomers = new Set(transactions.map(t => t.customerEmail)).size;
+    
+    console.log('🎯 CSV PROCESSING COMPLETE:');
+    console.log(`  📊 Total rows in CSV: ${lines.length - 1}`);
+    console.log(`  ✅ Valid transactions: ${processedCount}`);
+    console.log(`  🚫 Filtered out (invalid): ${filteredCount}`);
+    console.log(`  🔄 Duplicates removed: ${duplicateCount}`);
+    console.log(`  ❌ Failed payments excluded: ${failedPaymentCount}`);
+    console.log(`  💰 Total revenue: $${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`);
+    console.log(`  👥 Unique customers: ${uniqueCustomers}`);
+    
+    return {
+      success: true,
+      transactions,
+      summary: {
+        totalRows: lines.length - 1,
+        processed: processedCount,
+        filtered: filteredCount,
+        duplicates: duplicateCount,
+        failedPayments: failedPaymentCount,
+        totalRevenue,
+        uniqueCustomers,
+        csvTotal: totalCsvAmount
+      }
+    };
+    
+  } catch (error) {
+    console.error('❌ CSV Processing Error:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+};
+
+// Calculate dashboard metrics from transactions
+export const calculateMetrics = (transactions) => {
+  if (!transactions || transactions.length === 0) {
+    return {
+      overview: {
+        totalRevenue: 0,
+        uniqueCustomers: 0,
+        totalTransactions: 0,
+        averageOrderValue: 0,
+        conversionRate: 0,
+        customerRetention: 0
+      },
+      programData: [],
+      locationData: [],
+      monthlyRevenue: []
+    };
+  }
+  
+  // Overview metrics
+  const totalRevenue = transactions.reduce((sum, t) => sum + (t.netAmount || 0), 0);
+  const uniqueCustomers = new Set(transactions.map(t => t.customerEmail)).size;
+  const averageOrderValue = totalRevenue / transactions.length;
+  
+  // Program performance
+  const programMap = {};
+  transactions.forEach(t => {
+    if (!programMap[t.programCategory]) {
+      programMap[t.programCategory] = { revenue: 0, count: 0, customers: new Set() };
+    }
+    programMap[t.programCategory].revenue += t.netAmount || 0;
+    programMap[t.programCategory].count++;
+    programMap[t.programCategory].customers.add(t.customerEmail);
+  });
+  
+  // Ensure we're using the correct category names without modification
+  const programData = Object.entries(programMap).map(([name, data]) => ({
+    name: name, // Use the category name as-is, no display name mapping
+    revenue: Math.round(data.revenue),
+    count: data.count,
+    uniqueCustomers: data.customers.size,
+    avgTransaction: Math.round(data.revenue / data.count)
+  })).sort((a, b) => b.revenue - a.revenue);
+  
+  // Location performance
+  const locationMap = {};
+  transactions.forEach(t => {
+    if (!locationMap[t.location]) {
+      locationMap[t.location] = { revenue: 0, count: 0 };
+    }
+    locationMap[t.location].revenue += t.netAmount || 0;
+    locationMap[t.location].count++;
+  });
+  
+  const locationData = Object.entries(locationMap).map(([name, data]) => ({
+    name,
+    revenue: Math.round(data.revenue),
+    count: data.count
+  })).sort((a, b) => b.revenue - a.revenue);
+  
+  // Monthly revenue
+  const monthlyMap = {};
+  transactions.forEach(t => {
+    const month = new Date(t.orderDate).toISOString().slice(0, 7);
+    if (!monthlyMap[month]) {
+      monthlyMap[month] = { revenue: 0, count: 0 };
+    }
+    monthlyMap[month].revenue += t.netAmount || 0;
+    monthlyMap[month].count++;
+  });
+  
+  const monthlyRevenue = Object.entries(monthlyMap)
+    .map(([month, data]) => ({
+      month,
+      revenue: Math.round(data.revenue),
+      transactions: data.count
+    }))
+    .sort((a, b) => a.month.localeCompare(b.month));
+  
+  // Customer retention calculation
+  const customerPurchases = {};
+  transactions.forEach(t => {
+    if (!customerPurchases[t.customerEmail]) {
+      customerPurchases[t.customerEmail] = 0;
+    }
+    customerPurchases[t.customerEmail]++;
+  });
+  
+  const repeatCustomers = Object.values(customerPurchases).filter(count => count > 1).length;
+  const customerRetention = uniqueCustomers > 0 ? (repeatCustomers / uniqueCustomers) * 100 : 0;
+  
+  return {
+    overview: {
+      totalRevenue: Math.round(totalRevenue),
+      uniqueCustomers,
+      totalTransactions: transactions.length,
+      averageOrderValue: Math.round(averageOrderValue),
+      conversionRate: 0, // Would need additional data to calculate
+      customerRetention: Math.round(customerRetention)
+    },
+    programData,
+    locationData,
+    monthlyRevenue
+  };
+};
+
+// Export all functions
+export default {
+  filterTransactions,
+  processCSVFile,
+  calculateMetrics,
+  CHART_COLORS
+};
