@@ -1,17 +1,16 @@
 /**
- * Utils.jsx - MakeInspires Dashboard v45.5
+ * Utils.jsx - MakeInspires Dashboard v46.0
  * Data processing functions and helper utilities
  * Handles CSV parsing, filtering, and metric calculations
  * 
- * CHANGELOG v45.5:
- * - Updated program categorization to new 5-category system: Parties, Semester, Camp, Workshops, Private
- * - Enhanced logic to handle compound item types (e.g., "discount, semester")
- * - Added special handling for dropin items without "workshop" in activity name
- * - Improved Camp detection to include weekly programs with summer activities
- * 
- * CHANGELOG v45.4:
- * - Added custom date range filtering support
- * - Enhanced filterTransactions to handle start/end dates
+ * CHANGELOG v46.0:
+ * - Fixed Program Distribution categories:
+ *   - Parties: Item Types = 'party'
+ *   - Semester: Item Types = 'semester'
+ *   - Camps: Activity Name includes 'summer' OR (Item Types = 'camp' AND Activity includes 'summer')
+ *   - Workshops: ALL drop-in sessions OR (Item Types = 'camp' AND Activity does NOT include 'summer')
+ *   - Private: Item Types = 'pack'
+ *   - Other: free trials, gift cards, and unmatched items
  */
 
 // Parse CSV line handling commas in quotes
@@ -80,124 +79,116 @@ const normalizeLocation = (location) => {
 };
 
 // Categorize programs based on item types and activity names
-// Updated v45.5: New categorization rules per client requirements
+// Updated v46.0: Fixed categories per requirements
 const categorizeProgram = (itemType, activityName) => {
   const type = (itemType || '').toLowerCase().trim();
   const activity = (activityName || '').toLowerCase().trim();
   
-  // RULE 1: Parties = Item Types Column equals 'party'
-  // Handle both exact match and when 'party' is part of compound types
-  if (type === 'party' || type.split(',').some(t => t.trim() === 'party')) {
+  // Handle compound item types (e.g., "discount, semester")
+  // Split by comma and check each part
+  const itemTypeParts = type.split(',').map(part => part.trim());
+  
+  // 1. Camps - Activity includes "summer" (highest priority)
+  if (activity.includes('summer')) {
+    return 'Camps';
+  }
+  
+  // 2. Parties - Item Types includes 'party'
+  if (itemTypeParts.includes('party')) {
     return 'Parties';
   }
   
-  // RULE 2: Semester = Item Types Column equals 'semester'
-  // Handle both exact match and when 'semester' is part of compound types
-  if (type === 'semester' || type.includes('semester')) {
+  // 3. Semester - Item Types includes 'semester' or variants
+  if (itemTypeParts.includes('semester') || 
+      itemTypeParts.includes('semester_multiday') || 
+      itemTypeParts.includes('free_semester')) {
     return 'Semester';
   }
   
-  // RULE 3: Camp = Item Type Column equals 'camp' while the Order Activity Names Column includes the word 'Summer'
-  // Also include 'weekly' items with 'summer' in activity name (based on data analysis)
-  if ((type === 'camp' || type.includes('camp') || type === 'weekly' || type.includes('weekly')) && 
-      activity.includes('summer')) {
-    return 'Camp';
-  }
-  
-  // RULE 4: Workshops = Two conditions:
-  // A) Item Type Column equals 'camp' while the Order Activity Names Column does NOT include the word 'Summer'
-  // B) Item Type Column equals 'dropin' and the Order Activity Names Column includes the word 'Workshop'
-  if ((type === 'camp' || type.includes('camp')) && !activity.includes('summer')) {
-    return 'Workshops';
-  }
-  if ((type === 'dropin' || type.includes('dropin') || type === 'free_dropin' || type.includes('free_dropin')) && 
-      (activity.includes('workshop') || activity.includes('school\'s out') || activity.includes('schools out'))) {
+  // 4. Camps - Item Types = 'camp' AND Activity includes 'summer' (already handled above)
+  // Also handle camps without summer as Workshops
+  if (itemTypeParts.includes('camp')) {
+    // If we're here, activity doesn't include 'summer' (checked above)
     return 'Workshops';
   }
   
-  // RULE 5: Private = Item Types Column equals 'pack'
-  if (type === 'pack' || type.includes('pack')) {
+  // 5. Workshops - ALL drop-in sessions OR camps without summer
+  if (itemTypeParts.includes('dropin') || 
+      itemTypeParts.includes('free_dropin') ||
+      itemTypeParts.includes('drop-in') ||
+      itemTypeParts.includes('drop_in')) {
+    return 'Workshops';
+  }
+  
+  // 6. Private - Item Types includes 'pack'
+  if (itemTypeParts.includes('pack')) {
     return 'Private';
   }
   
-  // Additional categorization for unmatched items
-  // Handle remaining dropin items that don't have 'workshop' in activity
-  if (type === 'dropin' || type.includes('dropin') || type === 'free_dropin' || type.includes('free_dropin')) {
-    // Check if it's a private session
-    if (activity.includes('private')) {
-      return 'Private';
-    }
-    // Otherwise categorize as Workshops (most dropins are workshop-like activities)
-    return 'Workshops';
+  // 7. Weekly programs - Check if summer (goes to Camps) or regular
+  if (itemTypeParts.includes('weekly')) {
+    // Summer weekly programs already caught by summer check above
+    // Non-summer weekly programs go to Other
+    return 'Other';
   }
   
-  // Handle remaining weekly items (not summer camps)
-  if (type === 'weekly' || type.includes('weekly')) {
-    return 'Semester'; // Weekly programs are similar to semester programs
+  // 8. Other - Free trials, gift cards, and everything else
+  if (itemTypeParts.includes('gift_card') || 
+      itemTypeParts.includes('free_trial') ||
+      type === '' || type === 'null') {
+    return 'Other';
   }
   
-  // Handle gift cards and free trials
-  if (type.includes('gift_card') || type.includes('free_trial') || type === 'free_trial') {
-    return 'Private'; // Group with Private as miscellaneous revenue
-  }
-  
-  // Fallback - log unmatched for debugging
-  console.warn(`Unmatched program type: "${type}" with activity: "${activity}"`);
-  return 'Workshops'; // Default fallback to Workshops instead of 'Other'
+  // Default fallback
+  return 'Other';
 };
 
-// Filter transactions based on date range and other criteria
+// Filter transactions based on selected filters
 export const filterTransactions = (transactions, filters) => {
   if (!transactions || !Array.isArray(transactions)) return [];
   
   return transactions.filter(t => {
-    // Date range filter
+    // Date range filtering with custom date support
     if (filters.dateRange && filters.dateRange !== 'all') {
       const transactionDate = new Date(t.orderDate);
       const now = new Date();
       
-      // Handle custom date range
-      if (filters.dateRange === 'custom') {
-        if (filters.startDate) {
-          const start = new Date(filters.startDate);
-          start.setHours(0, 0, 0, 0);
-          if (transactionDate < start) return false;
-        }
-        if (filters.endDate) {
-          const end = new Date(filters.endDate);
-          end.setHours(23, 59, 59, 999);
-          if (transactionDate > end) return false;
-        }
+      if (filters.dateRange === 'custom' && filters.startDate && filters.endDate) {
+        const start = new Date(filters.startDate);
+        const end = new Date(filters.endDate);
+        end.setHours(23, 59, 59, 999); // Include full end day
+        if (transactionDate < start || transactionDate > end) return false;
       } else {
-        // Handle preset ranges
-        let daysAgo = 0;
+        let daysBack = 0;
+        
         switch (filters.dateRange) {
-          case '7d': daysAgo = 7; break;
-          case '30d': daysAgo = 30; break;
-          case '90d': daysAgo = 90; break;
-          case '6m': daysAgo = 180; break;
-          case '12m': daysAgo = 365; break;
+          case '7d': daysBack = 7; break;
+          case '30d': daysBack = 30; break;
+          case '90d': daysBack = 90; break;
+          case '6m': daysBack = 180; break;
+          case '12m': daysBack = 365; break;
           case 'ytd':
             const yearStart = new Date(now.getFullYear(), 0, 1);
             if (transactionDate < yearStart) return false;
             break;
+          default:
+            break;
         }
         
-        if (daysAgo > 0) {
-          const cutoff = new Date(now);
-          cutoff.setDate(cutoff.getDate() - daysAgo);
-          cutoff.setHours(0, 0, 0, 0);
-          if (transactionDate < cutoff) return false;
+        if (daysBack > 0) {
+          const cutoffDate = new Date();
+          cutoffDate.setDate(cutoffDate.getDate() - daysBack);
+          if (transactionDate < cutoffDate) return false;
         }
       }
     }
     
-    // Location filter
+    // Location filtering
     if (filters.location && filters.location !== 'all') {
       if (t.location !== filters.location) return false;
     }
     
-    // Program type filter
+    // Program type filtering
     if (filters.programType && filters.programType !== 'all') {
       if (t.programCategory !== filters.programType) return false;
     }
@@ -268,22 +259,30 @@ export const processCSVFile = async (file) => {
         const orderId = values[requiredColumns['Order ID']]?.toString().trim();
         const orderDate = values[requiredColumns['Order Date']]?.toString().trim();
         const customerEmail = values[requiredColumns['Customer Email']]?.toString().trim();
-        const netAmountStr = values[requiredColumns['Net Amount to Provider']]?.toString().trim();
+        const netAmount = parseFloat(values[requiredColumns['Net Amount to Provider']] || 0);
         const paymentStatus = values[requiredColumns['Payment Status']]?.toString().trim();
         const itemTypes = values[requiredColumns['Item Types']]?.toString().trim() || '';
         
-        // Parse net amount
-        const netAmount = parseFloat(netAmountStr?.replace(/[$,]/g, '') || '0');
-        
-        // Track all amounts for reconciliation
-        if (!isNaN(netAmount) && netAmount !== 0) {
-          totalCsvAmount += netAmount;
-        }
+        // Optional fields
+        const activityName = optionalColumns['Order Activity Names'] >= 0
+          ? values[optionalColumns['Order Activity Names']]?.toString().trim() || ''
+          : '';
+        const location = optionalColumns['Order Locations'] >= 0
+          ? values[optionalColumns['Order Locations']]?.toString().trim() || ''
+          : '';
+        const providerName = optionalColumns['Provider Name'] >= 0
+          ? values[optionalColumns['Provider Name']]?.toString().trim() || ''
+          : '';
         
         // Skip invalid rows
-        if (!orderId || !orderDate || !customerEmail) {
+        if (!orderId || !customerEmail) {
           filteredCount++;
           continue;
+        }
+        
+        // Track all amounts for debugging
+        if (paymentStatus === 'Succeeded') {
+          totalCsvAmount += netAmount;
         }
         
         // Check for duplicates
@@ -291,10 +290,9 @@ export const processCSVFile = async (file) => {
           duplicateCount++;
           continue;
         }
-        seenOrderIds.set(orderId, true);
         
         // Skip failed payments
-        if (paymentStatus && paymentStatus.toLowerCase() !== 'succeeded') {
+        if (paymentStatus !== 'Succeeded') {
           failedPaymentCount++;
           continue;
         }
@@ -305,16 +303,7 @@ export const processCSVFile = async (file) => {
           continue;
         }
         
-        // Get optional fields
-        const activityName = optionalColumns['Order Activity Names'] >= 0
-          ? values[optionalColumns['Order Activity Names']]?.toString().trim() || ''
-          : '';
-        const location = optionalColumns['Order Locations'] >= 0
-          ? values[optionalColumns['Order Locations']]?.toString().trim() || ''
-          : '';
-        const providerName = optionalColumns['Provider Name'] >= 0
-          ? values[optionalColumns['Provider Name']]?.toString().trim() || ''
-          : '';
+        seenOrderIds.set(orderId, true);
         
         const normalizedLocation = normalizeLocation(location);
         const programCategory = categorizeProgram(itemTypes, activityName);
@@ -414,47 +403,56 @@ export const calculateMetrics = (transactions) => {
     name,
     revenue: Math.round(data.revenue),
     count: data.count,
-    customers: data.customers.size
-  }));
+    uniqueCustomers: data.customers.size,
+    avgTransaction: Math.round(data.revenue / data.count)
+  })).sort((a, b) => b.revenue - a.revenue);
   
   // Location performance
   const locationMap = {};
   transactions.forEach(t => {
     if (!locationMap[t.location]) {
-      locationMap[t.location] = { revenue: 0, count: 0, customers: new Set() };
+      locationMap[t.location] = { revenue: 0, count: 0 };
     }
     locationMap[t.location].revenue += t.netAmount || 0;
     locationMap[t.location].count++;
-    locationMap[t.location].customers.add(t.customerEmail);
   });
   
   const locationData = Object.entries(locationMap).map(([name, data]) => ({
     name,
     revenue: Math.round(data.revenue),
-    count: data.count,
-    customers: data.customers.size
-  }));
+    count: data.count
+  })).sort((a, b) => b.revenue - a.revenue);
   
-  // Monthly revenue trend
+  // Monthly revenue
   const monthlyMap = {};
   transactions.forEach(t => {
-    const date = new Date(t.orderDate);
-    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    
-    if (!monthlyMap[monthKey]) {
-      monthlyMap[monthKey] = { revenue: 0, count: 0 };
+    const month = new Date(t.orderDate).toISOString().slice(0, 7);
+    if (!monthlyMap[month]) {
+      monthlyMap[month] = { revenue: 0, count: 0 };
     }
-    monthlyMap[monthKey].revenue += t.netAmount || 0;
-    monthlyMap[monthKey].count++;
+    monthlyMap[month].revenue += t.netAmount || 0;
+    monthlyMap[month].count++;
   });
   
   const monthlyRevenue = Object.entries(monthlyMap)
-    .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([month, data]) => ({
-      month: month.substring(5) + '/' + month.substring(2, 4),
+      month,
       revenue: Math.round(data.revenue),
       transactions: data.count
-    }));
+    }))
+    .sort((a, b) => a.month.localeCompare(b.month));
+  
+  // Customer retention calculation
+  const customerPurchases = {};
+  transactions.forEach(t => {
+    if (!customerPurchases[t.customerEmail]) {
+      customerPurchases[t.customerEmail] = 0;
+    }
+    customerPurchases[t.customerEmail]++;
+  });
+  
+  const repeatCustomers = Object.values(customerPurchases).filter(count => count > 1).length;
+  const customerRetention = uniqueCustomers > 0 ? (repeatCustomers / uniqueCustomers) * 100 : 0;
   
   return {
     overview: {
@@ -462,11 +460,19 @@ export const calculateMetrics = (transactions) => {
       uniqueCustomers,
       totalTransactions: transactions.length,
       averageOrderValue: Math.round(averageOrderValue),
-      conversionRate: 0,
-      customerRetention: 0
+      conversionRate: 0, // Would need additional data to calculate
+      customerRetention: Math.round(customerRetention)
     },
     programData,
     locationData,
     monthlyRevenue
   };
+};
+
+// Export all functions
+export default {
+  filterTransactions,
+  processCSVFile,
+  calculateMetrics,
+  CHART_COLORS
 };
