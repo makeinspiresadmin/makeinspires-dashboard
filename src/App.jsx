@@ -485,6 +485,6 @@ const MakeInspiresDashboard = () => {
       </div>
     </div>
   );
-};
+}
 
 export default MakeInspiresDashboard;
