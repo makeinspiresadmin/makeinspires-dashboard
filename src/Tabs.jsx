@@ -1,3 +1,14 @@
+/**
+ * Tabs.jsx - MakeInspires Dashboard v46.0
+ * All 7 dashboard tab components in one file
+ * Overview, Analytics, YoY, Predictive, Customers, Partners, Upload
+ * 
+ * CHANGELOG v46.0:
+ * - Updated Program Distribution categories to match new requirements:
+ *   Old: Party, Semester, Weekly, Dropin, Camp, Other, Workshop
+ *   New: Parties, Semester, Camps, Workshops, Private, Other
+ * - No other changes made - all existing features preserved
+ */
 import React from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
