@@ -420,7 +420,6 @@ export const processCSVFile = async (file) => {
 };
 
 // Calculate dashboard metrics from transactions
-// Returns overview KPIs, program distribution, location performance, and monthly trends
 export const calculateMetrics = (transactions) => {
   if (!transactions || transactions.length === 0) {
     return {
