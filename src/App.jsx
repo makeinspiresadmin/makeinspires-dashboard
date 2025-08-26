@@ -1,4 +1,23 @@
-// Dashboard data
+// Main Dashboard Component
+const MakeInspiresDashboard = () => {
+  // Authentication state
+  const [user, setUser] = useState(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  
+  // Dashboard state
+  const [activeTab, setActiveTab] = useState('overview');
+  const [dateRange, setDateRange] = useState('all');
+  const [location, setLocation] = useState('all');
+  const [programType, setProgramType] = useState('all');
+  const [showFilters, setShowFilters] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState(null);
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+    // Dashboard data
   const [dashboardData, setDashboardData] = useState({
     overview: {
       totalRevenue: 0,
