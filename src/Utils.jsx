@@ -58,24 +58,41 @@ const parseDate = (dateStr) => {
   return new Date();
 };
 
-// Normalize location names
-const normalizeLocation = (location) => {
-  const locationLower = location.toLowerCase();
+// Normalize location names using Provider Name field
+const normalizeLocation = (location, providerName) => {
+  // Check provider name first for more accurate location determination
+  const provider = (providerName || '').toLowerCase();
+  const loc = (location || '').toLowerCase();
   
-  if (locationLower.includes('mamaroneck') || locationLower.includes('mama')) {
-    return 'Mamaroneck';
-  }
-  if (locationLower.includes('nyc') || locationLower.includes('new york') || locationLower.includes('manhattan')) {
+  // Check Provider Name for location indicators
+  if (provider.includes('nyc') || provider.includes('new york') || provider.includes('manhattan') ||
+      provider.includes('upper east') || provider.includes('ues')) {
     return 'NYC';
   }
-  if (locationLower.includes('chappaqua') || locationLower.includes('chappa')) {
+  if (provider.includes('mamaroneck') || provider.includes('mama')) {
+    return 'Mamaroneck';
+  }
+  if (provider.includes('chappaqua') || provider.includes('chappa')) {
     return 'Chappaqua';
   }
-  if (locationLower.includes('partner') || locationLower.includes('offsite')) {
-    return 'Partner';
+  
+  // Fall back to Order Location field
+  if (loc.includes('mamaroneck') || loc.includes('mama')) {
+    return 'Mamaroneck';
+  }
+  if (loc.includes('nyc') || loc.includes('new york') || loc.includes('manhattan') ||
+      loc.includes('upper east') || loc.includes('hudson')) {
+    return 'NYC';
+  }
+  if (loc.includes('chappaqua') || loc.includes('chappa')) {
+    return 'Chappaqua';
+  }
+  if (loc.includes('partner') || loc.includes('offsite') || loc.includes('external')) {
+    return 'Partners';
   }
   
-  return location || 'Other';
+  // Group all other locations as "Other"
+  return 'Other';
 };
 
 // Categorize programs based on item types and activity names
@@ -331,7 +348,8 @@ export const processCSVFile = async (file) => {
         
         seenOrderIds.set(orderId, true);
         
-        const normalizedLocation = normalizeLocation(location);
+        // Use Provider Name directly as the location
+        const locationForChart = providerName || location || 'Unknown';
         const programCategory = categorizeProgram(itemTypes, activityName);
         
         transactions.push({
@@ -342,7 +360,7 @@ export const processCSVFile = async (file) => {
           paymentStatus,
           itemTypes,
           activityName,
-          location: normalizedLocation,
+          location: locationForChart,  // Use Provider Name as location
           providerName,
           programCategory
         });
