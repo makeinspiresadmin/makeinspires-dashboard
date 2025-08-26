@@ -61,7 +61,11 @@ export const DashboardTabs = ({
   };
   
   // Overview Tab
-  const renderOverview = () => (
+  const renderOverview = () => {
+    // Calculate total revenue for percentage calculation
+    const totalProgramRevenue = dashboardData.programData?.reduce((sum, item) => sum + (item.revenue || 0), 0) || 0;
+    
+    return (
     <div className="space-y-6">
       {/* Date Range Indicator */}
       {dateRange !== 'all' && (
@@ -144,7 +148,12 @@ export const DashboardTabs = ({
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                label={({ name, value }) => {
+                  const percentage = totalProgramRevenue > 0 
+                    ? ((value / totalProgramRevenue) * 100).toFixed(0) 
+                    : 0;
+                  return `${name}: ${percentage}%`;
+                }}
                 outerRadius={80}
                 fill="#8884d8"
                 dataKey="revenue"
@@ -153,7 +162,7 @@ export const DashboardTabs = ({
                   <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
+              <Tooltip formatter={(value) => `${value.toLocaleString()}`} />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -216,7 +225,8 @@ export const DashboardTabs = ({
         </div>
       </div>
     </div>
-  );
+    );
+  };
 
   // Analytics Tab
   const renderAnalytics = () => (
