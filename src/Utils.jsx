@@ -251,10 +251,16 @@ export const processCSVFile = async (file) => {
     let negativeAmountCount = 0;
     let totalCsvAmount = 0;
     
+    // Debug logging for first few rows
+    const debugFirstRows = 3;
+    
     for (let i = 1; i < lines.length; i++) {
       try {
         const values = parseCSVLine(lines[i]);
-        if (values.length < headers.length) continue;
+        if (values.length < headers.length) {
+          if (i <= debugFirstRows) console.log(`Row ${i}: Skipped - not enough columns (${values.length} vs ${headers.length})`);
+          continue;
+        }
         
         const orderId = values[requiredColumns['Order ID']]?.toString().trim();
         const orderDate = values[requiredColumns['Order Date']]?.toString().trim();
@@ -262,6 +268,15 @@ export const processCSVFile = async (file) => {
         const netAmount = parseFloat(values[requiredColumns['Net Amount to Provider']] || 0);
         const paymentStatus = values[requiredColumns['Payment Status']]?.toString().trim();
         const itemTypes = values[requiredColumns['Item Types']]?.toString().trim() || '';
+        
+        // Debug first few rows
+        if (i <= debugFirstRows) {
+          console.log(`Row ${i} Debug:`);
+          console.log(`  Order ID (col ${requiredColumns['Order ID']}): "${orderId}"`);
+          console.log(`  Email (col ${requiredColumns['Customer Email']}): "${customerEmail}"`);
+          console.log(`  Payment Status (col ${requiredColumns['Payment Status']}): "${paymentStatus}"`);
+          console.log(`  Net Amount (col ${requiredColumns['Net Amount to Provider']}): ${netAmount}`);
+        }
         
         // Optional fields
         const activityName = optionalColumns['Order Activity Names'] >= 0
@@ -277,6 +292,7 @@ export const processCSVFile = async (file) => {
         // Skip invalid rows
         if (!orderId || !customerEmail) {
           filteredCount++;
+          if (i <= debugFirstRows) console.log(`  SKIPPED: Missing ${!orderId ? 'Order ID' : 'Email'}`);
           continue;
         }
         
@@ -288,18 +304,21 @@ export const processCSVFile = async (file) => {
         // Check for duplicates
         if (seenOrderIds.has(orderId)) {
           duplicateCount++;
+          if (i <= debugFirstRows) console.log(`  SKIPPED: Duplicate Order ID`);
           continue;
         }
         
         // Skip failed payments
         if (paymentStatus !== 'Succeeded') {
           failedPaymentCount++;
+          if (i <= debugFirstRows) console.log(`  SKIPPED: Payment status is "${paymentStatus}" not "Succeeded"`);
           continue;
         }
         
         // Skip negative or zero amounts
         if (netAmount <= 0) {
           negativeAmountCount++;
+          if (i <= debugFirstRows) console.log(`  SKIPPED: Net amount is ${netAmount} (must be > 0)`);
           continue;
         }
         
@@ -322,6 +341,7 @@ export const processCSVFile = async (file) => {
         });
         
         processedCount++;
+        if (i <= debugFirstRows) console.log(`  ✓ ADDED: Category = ${programCategory}`);
         
       } catch (rowError) {
         console.warn(`⚠️ Error processing row ${i + 1}:`, rowError.message);
