@@ -1,13 +1,12 @@
 /**
- * Utils.jsx - MakeInspires Dashboard v46.0
+ * Utils.jsx - MakeInspires Dashboard v48.0
  * Data processing functions and helper utilities
  * Handles CSV parsing, filtering, and metric calculations
  * 
- * CHANGELOG v46.0:
- * -/**
- * Utils.jsx - MakeInspires Dashboard v46.0
- * Data processing functions and helper utilities
- * Handles CSV parsing, filtering, and metric calculations
+ * CHANGELOG v48.0:
+ * - Added monthly revenue breakdown by location for stacked area chart
+ * - Monthly revenue now includes Mamaroneck, NYC, Chappaqua, Partners, Other fields
+ * - Uses normalizeLocation function to categorize locations properly
  * 
  * CHANGELOG v46.0:
  * - Fixed Program Distribution categories to 6 simplified categories:
@@ -478,22 +477,43 @@ export const calculateMetrics = (transactions) => {
     count: data.count
   })).sort((a, b) => b.revenue - a.revenue);
   
-  // Monthly revenue
+  // Monthly revenue WITH location breakdown for stacked chart (v48.0 change)
   const monthlyMap = {};
   transactions.forEach(t => {
     const month = new Date(t.orderDate).toISOString().slice(0, 7);
     if (!monthlyMap[month]) {
-      monthlyMap[month] = { revenue: 0, count: 0 };
+      monthlyMap[month] = { 
+        revenue: 0, 
+        count: 0,
+        Mamaroneck: 0,
+        NYC: 0,
+        Chappaqua: 0,
+        Partners: 0,
+        Other: 0
+      };
     }
     monthlyMap[month].revenue += t.netAmount || 0;
     monthlyMap[month].count++;
+    
+    // Add to location-specific revenue using normalized location
+    const normalizedLoc = normalizeLocation(t.location, t.providerName);
+    if (monthlyMap[month][normalizedLoc] !== undefined) {
+      monthlyMap[month][normalizedLoc] += t.netAmount || 0;
+    } else {
+      monthlyMap[month].Other += t.netAmount || 0;
+    }
   });
   
   const monthlyRevenue = Object.entries(monthlyMap)
     .map(([month, data]) => ({
       month,
       revenue: Math.round(data.revenue),
-      transactions: data.count
+      transactions: data.count,
+      Mamaroneck: Math.round(data.Mamaroneck),
+      NYC: Math.round(data.NYC),
+      Chappaqua: Math.round(data.Chappaqua),
+      Partners: Math.round(data.Partners),
+      Other: Math.round(data.Other)
     }))
     .sort((a, b) => a.month.localeCompare(b.month));
   
