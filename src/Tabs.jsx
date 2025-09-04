@@ -1,13 +1,12 @@
 /**
- * Tabs.jsx - MakeInspires Dashboard v46.0
+ * Tabs.jsx - MakeInspires Dashboard v47.0
  * All 7 dashboard tab components in one file
  * Overview, Analytics, YoY, Predictive, Customers, Partners, Upload
  * 
- * CHANGELOG v46.0:
- * - Updated Program Distribution categories to match new requirements:
- *   Old: Party, Semester, Weekly, Dropin, Camp, Other, Workshop
- *   New: Parties, Semester, Camps, Workshops, Private, Other
- * - No other changes made - all existing features preserved
+ * CHANGELOG v47.0:
+ * - FIXED: Upload now properly checks for duplicates against existing dashboard data
+ * - ADDED: Upload history tracking with new vs duplicate counts
+ * - No other changes - all existing features preserved exactly as v46.0
  */
 import React from 'react';
 import {
@@ -545,7 +544,7 @@ export const DashboardTabs = ({
     </div>
   );
 
-  // Upload Tab - CSV file upload and data management (admin/manager only)
+  // Upload Tab - CSV file upload and data management (admin/manager only) - FIXED
   const renderUpload = () => {
     const handleFileUpload = async (event) => {
       const file = event.target.files[0];
@@ -559,15 +558,54 @@ export const DashboardTabs = ({
       const result = await processCSVFile(file);
       
       if (result.success) {
-        const updatedData = {
-          ...dashboardData,
-          transactions: [...dashboardData.transactions, ...result.transactions]
-        };
-        setDashboardData(updatedData);
-        setUploadStatus({
-          type: 'success',
-          message: `Successfully uploaded ${result.transactions.length} transactions`
-        });
+        // CRITICAL FIX: Check for duplicates against existing dashboard data
+        const existingOrderIds = new Set(
+          (dashboardData.transactions || []).map(t => String(t.orderId))
+        );
+        
+        // Filter out any transactions that already exist
+        const newTransactions = result.transactions.filter(t => 
+          !existingOrderIds.has(String(t.orderId))
+        );
+        
+        const duplicatesSkipped = result.transactions.length - newTransactions.length;
+        
+        // Only proceed if there are new transactions to add
+        if (newTransactions.length > 0) {
+          // Recalculate metrics with the combined data
+          const allTransactions = [...(dashboardData.transactions || []), ...newTransactions];
+          const updatedMetrics = calculateMetrics(allTransactions);
+          
+          const updatedData = {
+            ...dashboardData,
+            ...updatedMetrics,
+            transactions: allTransactions,
+            uploadHistory: [
+              ...(dashboardData.uploadHistory || []),
+              {
+                id: Date.now(),
+                fileName: file.name,
+                uploadDate: new Date().toISOString(),
+                totalInFile: result.transactions.length,
+                newRecords: newTransactions.length,
+                duplicatesSkipped: duplicatesSkipped,
+                status: 'success'
+              }
+            ].slice(-10) // Keep only last 10 uploads
+          };
+          
+          setDashboardData(updatedData);
+          setUploadStatus({
+            type: 'success',
+            message: `Successfully uploaded ${newTransactions.length} new transactions! ${duplicatesSkipped > 0 ? `(${duplicatesSkipped} duplicates skipped)` : ''}`
+          });
+        } else {
+          // All transactions were duplicates
+          setUploadStatus({
+            type: 'error',
+            message: `No new transactions added. All ${result.transactions.length} records already exist in the system.`
+          });
+        }
       } else {
         setUploadStatus({
           type: 'error',
@@ -595,7 +633,8 @@ export const DashboardTabs = ({
           programData: [],
           locationData: [],
           monthlyRevenue: [],
-          transactions: []
+          transactions: [],
+          uploadHistory: []
         });
         localStorage.removeItem('dashboardData');
         setUploadStatus({ type: 'success', message: 'All data has been deleted' });
@@ -649,6 +688,41 @@ export const DashboardTabs = ({
             )}
           </div>
         </div>
+        
+        {/* Upload History - NEW SECTION */}
+        {dashboardData.uploadHistory && dashboardData.uploadHistory.length > 0 && (
+          <div className="bg-white rounded-lg shadow-sm border p-6">
+            <h3 className="text-lg font-semibold mb-4">Recent Upload History</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">File</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">New/Skipped</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {dashboardData.uploadHistory.slice(0, 5).map((upload) => (
+                    <tr key={upload.id}>
+                      <td className="px-4 py-2 text-sm text-gray-900">{upload.fileName}</td>
+                      <td className="px-4 py-2 text-sm text-gray-500">
+                        {new Date(upload.uploadDate).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-500">
+                        {upload.newRecords} / {upload.duplicatesSkipped}
+                      </td>
+                      <td className="px-4 py-2">
+                        <span className="text-xs text-green-600">✓ Success</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
         
         <div className="bg-white rounded-lg shadow-sm border p-6">
           <h3 className="text-lg font-semibold mb-4">Data Status</h3>
