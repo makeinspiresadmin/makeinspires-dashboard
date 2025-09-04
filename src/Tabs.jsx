@@ -1,13 +1,12 @@
 /**
- * Tabs.jsx - MakeInspires Dashboard v48.0
- * All 7 dashboard tab components in one file
- * Overview, Analytics, YoY, Predictive, Customers, Partners, Upload
- * 
- * CHANGELOG v48.0:
- * - FIXED: All static/hardcoded data now calculated from uploaded transactions
- * - FIXED: Upload now properly checks for duplicates against existing dashboard data
- * - ADDED: Upload history tracking with new vs duplicate counts
- * - All features preserved - no sections removed
+ * Tabs.jsx - MakeInspires Dashboard v49.0
+ * ...
+ * CHANGELOG v49.0:
+ * - Added stacked area chart for Monthly Revenue Trend showing location breakdown
+ * - Chart now displays Mamaroneck, NYC, Chappaqua, Partners, and Other as stacked areas
+ * - Each location has its own color for easy visualization
+ * - Added Legend to identify locations
+ * - All other features preserved
  */
 import React from 'react';
 import {
