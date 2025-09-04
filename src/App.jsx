@@ -1,6 +1,12 @@
 /**
- * App.jsx - MakeInspires Dashboard v46.0
+ * App.jsx - MakeInspires Dashboard v50.0
  * Main application file with authentication, layout, and state management
+ * 
+ * CHANGELOG v50.0:
+ * - Fixed location filter to properly filter all data in Overview tab
+ * - Location dropdown now uses normalized location names (Partners not Partner)
+ * - All metrics and charts now update when location filter changes
+ * - Added explicit filtering logic in filteredDashboardData
  * 
  * CHANGELOG v46.1:
  * - Updated program category filters
@@ -66,27 +72,27 @@ const MakeInspiresDashboard = () => {
     lastUpdated: null
   });
   
-// Calculate data source date range for display - UPDATED in v46.1
-const dataSourceDateRange = useMemo(() => {
-  if (!dashboardData.transactions || dashboardData.transactions.length === 0) {
-    return '';
-  }
-  
-  const dates = dashboardData.transactions.map(t => new Date(t.orderDate));
-  const minDate = new Date(Math.min(...dates));
-  const maxDate = new Date(Math.max(...dates));
-  
-  // Updated format to include day - NEW in v46.1
-  const formatDateWithDay = (date) => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const month = months[date.getMonth()];
-    const day = date.getDate();
-    const year = date.getFullYear();
-    return `${month} ${day}, ${year}`;
-  };
-  
-  return ` (${formatDateWithDay(minDate)} - ${formatDateWithDay(maxDate)})`;
-}, [dashboardData.transactions]);
+  // Calculate data source date range for display - UPDATED in v46.1
+  const dataSourceDateRange = useMemo(() => {
+    if (!dashboardData.transactions || dashboardData.transactions.length === 0) {
+      return '';
+    }
+    
+    const dates = dashboardData.transactions.map(t => new Date(t.orderDate));
+    const minDate = new Date(Math.min(...dates));
+    const maxDate = new Date(Math.max(...dates));
+    
+    // Updated format to include day - NEW in v46.1
+    const formatDateWithDay = (date) => {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const month = months[date.getMonth()];
+      const day = date.getDate();
+      const year = date.getFullYear();
+      return `${month} ${day}, ${year}`;
+    };
+    
+    return ` (${formatDateWithDay(minDate)} - ${formatDateWithDay(maxDate)})`;
+  }, [dashboardData.transactions]);
   
   // Load user and data from localStorage on mount
   useEffect(() => {
@@ -145,8 +151,14 @@ const dataSourceDateRange = useMemo(() => {
     setActiveTab('overview');
   };
   
-  // Apply filters to dashboard data
+  // Apply filters to dashboard data - v50.0 FIXED LOCATION FILTERING
   const filteredDashboardData = useMemo(() => {
+    // If no transactions, return original data
+    if (!dashboardData.transactions || dashboardData.transactions.length === 0) {
+      return dashboardData;
+    }
+
+    // Build filter object
     const filters = {
       dateRange,
       startDate: dateRange === 'custom' ? customStartDate : null,
@@ -155,14 +167,19 @@ const dataSourceDateRange = useMemo(() => {
       programType: programType === 'all' ? null : programType
     };
     
-    const filtered = filterTransactions(dashboardData.transactions, filters);
-    const metrics = calculateMetrics(filtered);
+    // Apply filters to transactions
+    const filteredTransactions = filterTransactions(dashboardData.transactions, filters);
     
+    // Recalculate metrics based on filtered transactions
+    const metrics = calculateMetrics(filteredTransactions);
+    
+    // Return filtered data with recalculated metrics
     return {
       ...dashboardData,
-      ...metrics
+      ...metrics,
+      transactions: filteredTransactions // Keep filtered transactions for other tabs
     };
-  }, [dashboardData.transactions, dateRange, location, programType, customStartDate, customEndDate]);
+  }, [dashboardData.transactions, dateRange, customStartDate, customEndDate, location, programType]);
   
   // Tab configuration
   const tabs = [
@@ -183,7 +200,7 @@ const dataSourceDateRange = useMemo(() => {
           <div className="text-center mb-8">
             <MakeInspiresLogo size={64} />
             <h1 className="text-2xl font-bold text-gray-900 mt-4">MakeInspires Dashboard</h1>
-            <p className="text-sm text-gray-600 mt-1">v46.1</p>
+            <p className="text-sm text-gray-600 mt-1">v50.0</p>
           </div>
           
           <form onSubmit={handleLogin} className="space-y-4">
@@ -258,7 +275,7 @@ const dataSourceDateRange = useMemo(() => {
             <div className="flex items-center">
               <MakeInspiresLogo size={32} />
               <h1 className="ml-3 text-xl font-semibold text-gray-900">MakeInspires Dashboard</h1>
-              <span className="ml-3 text-xs text-gray-500">v46.1{dataSourceDateRange}</span>
+              <span className="ml-3 text-xs text-gray-500">v50.0{dataSourceDateRange}</span>
             </div>
             
             <div className="flex items-center space-x-4">
@@ -322,7 +339,7 @@ const dataSourceDateRange = useMemo(() => {
               <option value="custom">Custom Range</option>
             </select>
             
-            {/* Location Dropdown */}
+            {/* Location Dropdown - FIXED v50.0 */}
             <select
               value={location}
               onChange={(e) => setLocation(e.target.value)}
@@ -332,7 +349,7 @@ const dataSourceDateRange = useMemo(() => {
               <option value="Mamaroneck">Mamaroneck</option>
               <option value="NYC">NYC</option>
               <option value="Chappaqua">Chappaqua</option>
-              <option value="Partner">Partners</option>
+              <option value="Partners">Partners</option>
               <option value="Other">Other</option>
             </select>
             
