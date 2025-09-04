@@ -120,14 +120,12 @@ const dataSourceDateRange = useMemo(() => {
     
     setTimeout(() => {
       const users = {
-        'admin@makeinspires.com': { role: 'admin', name: 'Admin User' },
-        'manager@makeinspires.com': { role: 'manager', name: 'Manager User' },
-        'viewer@makeinspires.com': { role: 'viewer', name: 'Viewer User' }
+        'makemanager': { role: 'admin', name: 'Admin User' }
       };
       
       const normalizedEmail = email.toLowerCase().trim();
       
-      if (users[normalizedEmail] && password === 'password123') {
+      if (users[normalizedEmail] && password === 'l0vegoal') {
         const userData = { email: normalizedEmail, ...users[normalizedEmail] };
         setUser(userData);
         localStorage.setItem('user', JSON.stringify(userData));
@@ -244,12 +242,6 @@ const dataSourceDateRange = useMemo(() => {
               {isLoading ? 'Signing in...' : 'Sign In'}
             </button>
             
-            <div className="mt-4 text-center text-xs text-gray-500">
-              <p>Demo credentials:</p>
-              <p className="mt-1">admin@makeinspires.com / password123</p>
-              <p>manager@makeinspires.com / password123</p>
-              <p>viewer@makeinspires.com / password123</p>
-            </div>
           </form>
         </div>
       </div>
