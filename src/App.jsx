@@ -120,7 +120,7 @@ const dataSourceDateRange = useMemo(() => {
     
     setTimeout(() => {
       const users = {
-        'makemanager': { role: 'admin', name: 'Admin User' }
+        'travis@makeinspires.com': { role: 'admin', name: 'Admin User' }
       };
       
       const normalizedEmail = email.toLowerCase().trim();
