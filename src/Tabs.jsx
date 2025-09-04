@@ -220,7 +220,7 @@ export const DashboardTabs = ({
         </div>
       </div>
 
-      {/* Monthly Revenue Trend */}
+      {/* Monthly Revenue Trend - v49.0 UPDATED WITH STACKED LOCATIONS */}
       <div className="bg-white p-6 rounded-lg shadow-sm border">
         <h3 className="text-lg font-semibold mb-4">
           Monthly Revenue Trend {dateRange !== 'all' && `(${getDateRangeDisplay()})`}
@@ -231,10 +231,16 @@ export const DashboardTabs = ({
             <XAxis dataKey="month" />
             <YAxis />
             <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
-            <Area type="monotone" dataKey="revenue" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.3} />
+            <Legend />
+            <Area type="monotone" dataKey="Mamaroneck" stackId="1" stroke="#3B82F6" fill="#3B82F6" name="Mamaroneck" />
+            <Area type="monotone" dataKey="NYC" stackId="1" stroke="#10B981" fill="#10B981" name="NYC" />
+            <Area type="monotone" dataKey="Chappaqua" stackId="1" stroke="#F59E0B" fill="#F59E0B" name="Chappaqua" />
+            <Area type="monotone" dataKey="Partners" stackId="1" stroke="#8B5CF6" fill="#8B5CF6" name="Partners" />
+            <Area type="monotone" dataKey="Other" stackId="1" stroke="#EC4899" fill="#EC4899" name="Other" />
           </AreaChart>
         </ResponsiveContainer>
       </div>
+
 
       {/* Quick Stats */}
       <div className="bg-white p-6 rounded-lg shadow-sm border">
